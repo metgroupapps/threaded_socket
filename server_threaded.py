@@ -22,18 +22,13 @@ try:
 	sck.listen(5)
 	connection = psycopg2.connect(user = conf['db']['user'], password = conf['db']['password'], host = conf['db']['host'], port = conf['db']['port'], database = conf['db']['database'])
 	cursor = connection.cursor()
-	cursor.execute('SELECT id, operator_id FROM operations ORDER BY id ASC LIMIT 5')
+	cursor.execute('SELECT id, operator_id FROM operations ORDER BY id ASC LIMIT 10')
 	x = cursor.fetchall()
 	print(f"Query in PostgreSQL: {x}")
-	'''cursor.execute('SELECT id, operator_id FROM operations ORDER BY id ASC LIMIT 5')
-  x = cursor.fetchall()
-  print(f"Query in PostgreSQL: {x}")
-  cursor.execute("SELECT version();")
-  record = cursor.fetchone()
 	if(connection):
-    cursor.close()
-    connection.close()
-    print("PostgreSQL connection is closed")'''
+		cursor.close()
+		connection.close()
+		print("PostgreSQL connection is closed")
 except Exception as e:
 	raise SystemExit(f"We could not bind the server on host: {args.host} to port: {args.port}, because: {e}")
 
