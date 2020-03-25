@@ -20,12 +20,11 @@ sck.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 try: 
 	sck.bind((args.host, args.port))
 	sck.listen(5)
-	connection = psycopg2.connect(user = conf['db']['user'],
-                                password = conf['db']['password'],
-                                host = conf['db']['host'],
-                                port = conf['db']['port'],
-                                database = conf['db']['database'])
-  cursor = connection.cursor()
+	connection = psycopg2.connect(user = conf['db']['user'], password = conf['db']['password'], host = conf['db']['host'], port = conf['db']['port'], database = conf['db']['database'])
+	cursor = connection.cursor()
+	cursor.execute('SELECT id, operator_id FROM operations ORDER BY id ASC LIMIT 5')
+	x = cursor.fetchall()
+	print(f"Query in PostgreSQL: {x}")
 	'''cursor.execute('SELECT id, operator_id FROM operations ORDER BY id ASC LIMIT 5')
   x = cursor.fetchall()
   print(f"Query in PostgreSQL: {x}")
@@ -47,8 +46,6 @@ def on_new_client(client, connection):
 	client.close()
 
 def handle_message(messasge):
-	if messasge.decode() == 'exit':
-		break
 	logging.info(f"The new connection was made from IP: {ip}, and port: {port}!")
 	logging.debug(messasge.decode())
 	logging.info(f"The client from ip: {ip}, and port: {port}, has gracefully disconnected!")
