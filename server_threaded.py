@@ -20,7 +20,7 @@ sck.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 try: 
 	sck.bind((args.host, args.port))
 	sck.listen(5)
-	connection = psycopg2.connect(user = conf['db']['user'], password = conf['db']['password'], host = conf['db']['host'], port = conf['db']['port'], database = conf['db']['database'])
+	'''connection = psycopg2.connect(user = conf['db']['user'], password = conf['db']['password'], host = conf['db']['host'], port = conf['db']['port'], database = conf['db']['database'])
 	cursor = connection.cursor()
 	cursor.execute('SELECT id, operator_id FROM operations ORDER BY id ASC LIMIT 10')
 	x = cursor.fetchall()
@@ -28,7 +28,7 @@ try:
 	if(connection):
 		cursor.close()
 		connection.close()
-		print("PostgreSQL connection is closed")
+		print("PostgreSQL connection is closed")'''
 except Exception as e:
 	raise SystemExit(f"We could not bind the server on host: {args.host} to port: {args.port}, because: {e}")
 
