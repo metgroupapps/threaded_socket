@@ -1,11 +1,15 @@
+import sys
 import socket
 import argparse
 import threading
 import logging
 import yaml 
 import psycopg2
+from datetime import datetime
 
 conf = yaml.load(open('application.yml'), Loader=yaml.BaseLoader)
+log_name = "log_threaded_server_{}".format(datetime.now())
+logging.basicConfig(filename=log_name)
 
 parser = argparse.ArgumentParser(description = "This is the server for the multithreaded socket demo!")
 parser.add_argument('--host', metavar = 'host', type = str, nargs = '?', default = socket.gethostname())
@@ -53,6 +57,7 @@ while True:
 		threading._start_new_thread(on_new_client,(client, ip))
 	except KeyboardInterrupt:
 		print("Gracefully shutting down the server!")
+		sys.exit()
 	except Exception as e:
 		print("Well I did not anticipate this: {}".format(e))
 
