@@ -8,10 +8,10 @@ import psycopg2
 from datetime import datetime
 
 conf = yaml.load(open('application.yml'), Loader=yaml.BaseLoader)
-log_name = "log_threaded_server_{}".format(datetime.now())
+log_name = "log_threaded_server_{}".format(datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))
 logging.basicConfig(filename=log_name)
 
-parser = argparse.ArgumentParser(description = "This is the server for the multithreaded socket demo!")
+parser = argparse.ArgumentParser(description = "This is the server for the multithreaded socket.")
 parser.add_argument('--host', metavar = 'host', type = str, nargs = '?', default = socket.gethostname())
 parser.add_argument('--port', metavar = 'port', type = int, nargs = '?', default = 8443)
 args = parser.parse_args()
@@ -34,22 +34,25 @@ def get_vehicles():
 try: 
 	sck.bind((args.host, args.port))
 	sck.listen(5)
-	records = get_vehicles()
+	#records = get_vehicles()
 except Exception as e:
 	raise SystemExit("We could not bind the server on host: {} to port: {}, because: {}".format(args.host, args.port, e))
 
 def on_new_client(client, connection):	
+	ip = connection[0]
+	port = connection[1]
 	while True:
 		msg = client.recv(1024)
-		handle_message(msg)
+		print("The client said: {}".format(msg.decode()))
+		handle_message(client, ip, port, msg)
+	logging.info("The client from ip: {}, and port: {}, has gracefully disconnected!".format(ip, port))
 	client.close()
 
-def handle_message(messasge):
+def handle_message(client, ip, port, messasge):
 	logging.info("The new connection was made from IP: {}, and port: {}!".format(ip, port))
 	logging.debug(messasge.decode())
-	logging.info("The client from ip: {}, and port: {}, has gracefully disconnected!".format(ip, port))
-	#reply = "OK"
-	#client.sendall(reply.encode('utf-8'))
+	reply = "OK"
+	client.send(reply.encode('utf-8'))
 
 while True:
 	try: 
