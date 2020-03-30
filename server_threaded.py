@@ -46,6 +46,7 @@ def on_new_client(client, connection):
 	logging.info("The new connection was made from IP: {}, and port: {}!".format(ip, port))
 	while True:
 		msg = client.recv(1024)
+		logging.info("Clean data: {}".format(msg))
 		handle_message(client, msg)
 	client.close()
 	logging.info("The client from ip: {}, and port: {}, has gracefully disconnected!".format(ip, port))
