@@ -16,11 +16,11 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sck:
 		raise SystemExit(f"We have failed to connect to host: {args.host} on port: {args.port}, because: {e}")
 
 	while True:
-		msg = '{"MODULE":"CERTIFICATE","OPERATION":"CONNECT","PARAMETER":{"AUTOCAR":"prueba","AUTONO":"0","CARNUM":"","CHANNEL":16,"CID":10,"CNAME":"CUSTOMER_04.1519","DEVCLASS":4,"DEVNAME":"MDVR","DEVTYPE":1,"DLIP":[{"LIP":"0.0.0.0","MT":"eth0"}],"DLP":[80,9006],"DSNO":"00980001E4","EID":"APSI18_80","EV":"V1.1","FSV":0,"LINENO":"","MAC":[{"IMAC":"00:00:00:00:00:00","MT":"eth0"}],"MODE":1,"MTYPE":79,"NET":2,"PRO":"1.0.5","STYPE":74,"TSE":1,"UNAME":"","UNO":""},"SESSION":"2a2d9df5-c961-4dce-92b8-1a43465de3ef"}'
+		msg = '{"MODULE":"CERTIFICATE","OPERATION":"CONNECT","PARAMETER":{"AUTOCAR":"prueba","AUTONO":"0","CARNUM":"","CHANNEL":16,"CID":10,"CNAME":"CUSTOMER_04.1519","DEVCLASS":4,"DEVNAME":"MDVR","DEVTYPE":1,"DLIP":[{"LIP":"0.0.0.0","MT":"eth0"}],"DLP":[80,9006],"DSNO":"00980001E4","EID":"APSI18_80","EV":"V1.1","FSV":0,"LINENO":"","MAC":[{"IMAC":"00:00:00:00:00:00","MT":"eth0"}],"MODE":1,"MTYPE":79,"NET":2,"PRO":"1.0.5","STYPE":74,"TSE":1,"UNAME":"","UNO":""},"SESSION":"c1a602c5-191f-4d68-9c71-26e5f6a89b50"}'
 		sck.sendall(msg.encode('utf-8'))
-		time.sleep(5)
 		if msg =='exit':
 			print("Client is saying goodbye!")
 			break
 		data = sck.recv(1024)
 		print("The server's response was: {}".format(data.decode()))
+		time.sleep(5)
