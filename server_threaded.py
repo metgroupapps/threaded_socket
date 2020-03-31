@@ -51,22 +51,25 @@ def on_new_client(client, connection):
 	client.close()
 	logging.info("The client from ip: {}, and port: {}, has gracefully disconnected!".format(ip, port))
 
-def handle_message(client, messasge):
-	msg = messasge.decode()
-	logging.debug(msg)
-	loaded_json = json.loads(msg)
-	operation = loaded_json['OPERATION']
-	session_id = loaded_json['SESSION']
-	if operation == "CONNECT":
-		#device_id = loaded_json['PARAMETER']['DSNO']
-		reply = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"CONNECT","RESPONSE":{"DEVTYPE":1,"ERRORCAUSE":"","ERRORCODE":0,"MASKCMD":1,"PRO":"1.0.4","VCODE":""},"SESSION":session_id})
-		client.send(reply.encode('utf-8'))
-		time.sleep(0.5)
-		set_binary = json.dumps({"MODULE":"CONFIGMODEL","OPERATION":"SET","PARAMETER":{"MDVR":{"KEYS":{"GV":1},"PGDSM":{"PGPS":{"EN":1}},"PIS":{"PC041245T":{"GU":{"EN":1,"IT":5}}},"PSI":{"CG":{"UEM":0}}}},"SESSION":session_id})
-		client.send(set_binary.encode('utf-8'))
-	elif operation == "KEEPALIVE":
-		reply = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"KEEPALIVE","SESSION":session_id})
-		client.send(reply.encode('utf-8'))
+def handle_message(client, message):
+	#msg = messasge.decode()
+	#msg = json.loads(message)
+	#msg = str(message)
+	print(message) 
+	#logging.debug(msg)
+#loaded_json = json.loads(msg)
+#operation = loaded_json['OPERATION']
+#session_id = loaded_json['SESSION']
+#if operation == "CONNECT":
+###device_id = loaded_json['PARAMETER']['DSNO']
+##reply = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"CONNECT","RESPONSE":{"DEVTYPE":1,"ERRORCAUSE":"","ERRORCODE":0,"MASKCMD":1,"PRO":"1.0.4","VCODE":""},"SESSION":session_id})
+##client.send(reply.encode('utf-8'))
+##time.sleep(0.5)
+##set_binary = json.dumps({"MODULE":"CONFIGMODEL","OPERATION":"SET","PARAMETER":{"MDVR":{"KEYS":{"GV":1},"PGDSM":{"PGPS":{"EN":1}},"PIS":{"PC041245T":{"GU":{"EN":1,"IT":5}}},"PSI":{"CG":{"UEM":0}}}},"SESSION":session_id})
+##client.send(set_binary.encode('utf-8'))
+#elif operation == "KEEPALIVE":
+##reply = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"KEEPALIVE","SESSION":session_id})
+##client.send(reply.encode('utf-8'))
 
 while True:
 	try: 
