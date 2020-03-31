@@ -58,7 +58,7 @@ def handle_message(client, message):
 	index = strMsg.find("{")
 	tmp = strMsg[index:]
 	loaded_json = json.loads(tmp)
-	print loaded_json
+	print(loaded_json)
 	operation = loaded_json['OPERATION']
 	session_id = loaded_json['SESSION']
 	if operation == "CONNECT":
