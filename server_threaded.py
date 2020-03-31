@@ -54,14 +54,15 @@ def on_new_client(client, connection):
 	logging.info("The client from ip: {}, and port: {}, has gracefully disconnected!".format(ip, port))
 
 def handle_message(client, message):
-	strMsg = str(message.strip())
+	strMsg = message.strip().decode('utf-8', 'ignore')
 	index = strMsg.find("{")
-	tmp = strMsg[index:-1]
+	tmp = strMsg[index:]
 	loaded_json = json.loads(tmp)
+	print loaded_json
 	operation = loaded_json['OPERATION']
 	session_id = loaded_json['SESSION']
 	if operation == "CONNECT":
-		device_id = loaded_json['PARAMETER']['DSNO']
+		#device_id = loaded_json['PARAMETER']['DSNO']
 		reply = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"CONNECT","RESPONSE":{"DEVTYPE":1,"ERRORCAUSE":"","ERRORCODE":0,"MASKCMD":1,"PRO":"1.0.4","VCODE":""},"SESSION":session_id})
 		client.send(reply.encode('utf-8'))
 		#time.sleep(0.5)
