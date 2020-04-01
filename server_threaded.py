@@ -65,7 +65,7 @@ def handle_message(client, message):
 			#device_id = loaded_json['PARAMETER']['DSNO']
 			payload = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"CONNECT","RESPONSE":{"DEVTYPE":1,"ERRORCAUSE":"","ERRORCODE":0,"MASKCMD":1,"PRO":"1.0.4","VCODE":""},"SESSION":session_id}).encode('utf-8')
 			pLength = sys.getsizeof(payload)
-			header = bytes([00, 00, 00, 00, 00, 00, 00, pLength, 15, 00, 00, 00])
+			header = bytes([0, 0, 0, 0, 0, 0, 0, pLength, 15, 0, 0, 0])
 			completeMessage = str(header + payload)
 			client.send(completeMessage.encode('utf-8'))
 			#time.sleep(0.5)
