@@ -37,7 +37,7 @@ def get_vehicles():
 
 try: 
 	sck.bind((args.host, args.port))
-	sck.listen()
+	sck.listen(5)
 	#records = get_vehicles()
 except Exception as e:
 	raise SystemExit("We could not bind the server on host: {} to port: {}, because: {}".format(args.host, args.port, e))
@@ -59,16 +59,21 @@ def handle_message(client, message):
 		index = strMsg.find("{")
 		tmp = strMsg[index:]
 		loaded_json = json.loads(tmp)
-		print(loaded_json)
 		operation = loaded_json['OPERATION']
 		session_id = loaded_json['SESSION']
 		if operation == "CONNECT":
 			#device_id = loaded_json['PARAMETER']['DSNO']
-			reply = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"CONNECT","RESPONSE":{"DEVTYPE":1,"ERRORCAUSE":"","ERRORCODE":0,"MASKCMD":1,"PRO":"1.0.4","VCODE":""},"SESSION":session_id})
-			client.send(reply.encode('utf-8'))
+			payload = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"CONNECT","RESPONSE":{"DEVTYPE":1,"ERRORCAUSE":"","ERRORCODE":0,"MASKCMD":1,"PRO":"1.0.4","VCODE":""},"SESSION":session_id}).encode('utf-8')
+			pLength = sys.getsizeof(payload)
+			header = bytes([00, 00, 00, 00, 00, 00, 00, pLength, 15, 00, 00, 00])
+			completeMessage = str(header + payload)
+			client.send(completeMessage.encode('utf-8'))
 			#time.sleep(0.5)
-			#set_binary = json.dumps({"MODULE":"CONFIGMODEL","OPERATION":"SET","PARAMETER":{"MDVR":{"KEYS":{"GV":1},"PGDSM":{"PGPS":{"EN":1}},"PIS":{"PC041245T":{"GU":{"EN":1,"IT":5}}},"PSI":{"CG":{"UEM":0}}}},"SESSION":session_id})
-			#client.send(set_binary.encode('utf-8'))
+			#setBinary = json.dumps({"MODULE":"CONFIGMODEL","OPERATION":"SET","PARAMETER":{"MDVR":{"KEYS":{"GV":1},"PGDSM":{"PGPS":{"EN":1}},"PIS":{"PC041245T":{"GU":{"EN":1,"IT":5}}},"PSI":{"CG":{"UEM":0}}}},"SESSION":session_id}).encode('utf-8')
+			#pLengthBinary = sys.getsizeof(set_binary)
+			#headerBinary = bytes([00, 00, 00, 00, 00, 00, 00, pLengthBinary, 15, 00, 00, 00])
+			#binaryMessage = str(headerBinary + setBinary)
+			#client.send(binaryMessage.encode('utf-8'))
 		elif operation == "KEEPALIVE":
 			reply = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"KEEPALIVE","SESSION":session_id})
 			client.send(reply.encode('utf-8'))
