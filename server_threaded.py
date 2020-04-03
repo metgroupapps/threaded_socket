@@ -63,16 +63,13 @@ def handle_message(client, message):
 		session_id = loaded_json['SESSION']
 		if operation == "CONNECT":
 			#device_id = loaded_json['PARAMETER']['DSNO']
-			payload = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"CONNECT","RESPONSE":{"DEVTYPE":1,"ERRORCAUSE":"","ERRORCODE":0,"MASKCMD":1,"PRO":"1.0.4","VCODE":""},"SESSION":session_id}).encode('utf-8')
+			payloadJson = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"CONNECT","RESPONSE":{"DEVTYPE":1,"ERRORCAUSE":"","ERRORCODE":0,"MASKCMD":1,"PRO":"1.0.4","VCODE":""},"SESSION":session_id})
+			payload = str(payloadJson).replace(" ", "")
 			pLength = sys.getsizeof(payload)
-			header = bytes([0, 0, 0, 0, 0, 0, 0, pLength, 15, 0, 0, 0])
-			completeMessage = str(header + payload)
+			completeMessage = "00000000" + format(pLength, 'x').zfill(8) + "52000000" + payload
 			client.send(completeMessage.encode('utf-8'))
 			#time.sleep(0.5)
-			#setBinary = json.dumps({"MODULE":"CONFIGMODEL","OPERATION":"SET","PARAMETER":{"MDVR":{"KEYS":{"GV":1},"PGDSM":{"PGPS":{"EN":1}},"PIS":{"PC041245T":{"GU":{"EN":1,"IT":5}}},"PSI":{"CG":{"UEM":0}}}},"SESSION":session_id}).encode('utf-8')
-			#pLengthBinary = sys.getsizeof(set_binary)
-			#headerBinary = bytes([00, 00, 00, 00, 00, 00, 00, pLengthBinary, 15, 00, 00, 00])
-			#binaryMessage = str(headerBinary + setBinary)
+			#setBinary = json.dumps({"MODULE":"CONFIGMODEL","OPERATION":"SET","PARAMETER":{"MDVR":{"KEYS":{"GV":1},"PGDSM":{"PGPS":{"EN":1}},"PIS":{"PC041245T":{"GU":{"EN":1,"IT":5}}},"PSI":{"CG":{"UEM":0}}}},"SESSION":session_id})
 			#client.send(binaryMessage.encode('utf-8'))
 		elif operation == "KEEPALIVE":
 			reply = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"KEEPALIVE","SESSION":session_id})
