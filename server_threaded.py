@@ -68,9 +68,12 @@ def handle_message(client, message):
 			pLength = sys.getsizeof(payload)
 			completeMessage = "00000000" + format(pLength, 'x').zfill(8) + "52000000" + payload
 			client.send(completeMessage.encode('utf-8'))
-			#time.sleep(0.5)
-			#setBinary = json.dumps({"MODULE":"CONFIGMODEL","OPERATION":"SET","PARAMETER":{"MDVR":{"KEYS":{"GV":1},"PGDSM":{"PGPS":{"EN":1}},"PIS":{"PC041245T":{"GU":{"EN":1,"IT":5}}},"PSI":{"CG":{"UEM":0}}}},"SESSION":session_id})
-			#client.send(binaryMessage.encode('utf-8'))
+			time.sleep(0.5)
+			#payloadJsonBinary = json.dumps({"MODULE":"CONFIGMODEL","OPERATION":"SET","PARAMETER":{"MDVR":{"KEYS":{"GV":1},"PGDSM":{"PGPS":{"EN":1}},"PIS":{"PC041245T":{"GU":{"EN":1,"IT":5}}},"PSI":{"CG":{"UEM":0}}}},"SESSION":session_id})
+			#payloadBinary = str(payloadJson).replace(" ", "")
+			#pLengthBinary = sys.getsizeof(payload)
+			#completeMessageBinary = "00000000" + format(pLengthBinary, 'x').zfill(8) + "52000000" + payloadBinary
+			#client.send(completeMessageBinary.encode('utf-8'))
 		elif operation == "KEEPALIVE":
 			reply = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"KEEPALIVE","SESSION":session_id})
 			client.send(reply.encode('utf-8'))
