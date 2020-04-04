@@ -7,8 +7,6 @@ import yaml
 import psycopg2
 import json 
 from json import JSONDecoder
-import time
-import re
 from datetime import datetime
 
 logging.basicConfig(filename='developer_info.log', level=logging.DEBUG, format='%(asctime)s:%(levelname)s:%(message)s')
@@ -35,13 +33,6 @@ def get_vehicles():
 		connection.close()
 	return x
 
-try: 
-	sck.bind((args.host, args.port))
-	sck.listen(5)
-	#records = get_vehicles()
-except Exception as e:
-	raise SystemExit("We could not bind the server on host: {} to port: {}, because: {}".format(args.host, args.port, e))
-
 def on_new_client(client, connection):
 	ip = connection[0]
 	port = connection[1]
@@ -54,29 +45,42 @@ def on_new_client(client, connection):
 	logging.info("The client from ip: {}, and port: {}, has gracefully disconnected!".format(ip, port))
 
 def handle_message(client, message):
-	strMsg = message.strip().decode('utf-8', 'ignore')
-	if len(strMsg) > 0:
-		index = strMsg.find("{")
-		tmp = strMsg[index:]
-		loaded_json = json.loads(tmp)
-		operation = loaded_json['OPERATION']
-		session_id = loaded_json['SESSION']
-		if operation == "CONNECT":
-			#device_id = loaded_json['PARAMETER']['DSNO']
-			payload = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"CONNECT","RESPONSE":{"DEVTYPE":1,"ERRORCAUSE":"","ERRORCODE":0,"MASKCMD":1,"PRO":"1.0.4","VCODE":""},"SESSION":session_id}).encode('utf-8')
-			pLength = sys.getsizeof(payload)
-			header = bytes([0, 0, 0, 0, 0, 0, 0, pLength, 15, 0, 0, 0])
-			completeMessage = str(header + payload)
-			client.send(completeMessage.encode('utf-8'))
-			#time.sleep(0.5)
-			#setBinary = json.dumps({"MODULE":"CONFIGMODEL","OPERATION":"SET","PARAMETER":{"MDVR":{"KEYS":{"GV":1},"PGDSM":{"PGPS":{"EN":1}},"PIS":{"PC041245T":{"GU":{"EN":1,"IT":5}}},"PSI":{"CG":{"UEM":0}}}},"SESSION":session_id}).encode('utf-8')
-			#pLengthBinary = sys.getsizeof(set_binary)
-			#headerBinary = bytes([00, 00, 00, 00, 00, 00, 00, pLengthBinary, 15, 00, 00, 00])
-			#binaryMessage = str(headerBinary + setBinary)
-			#client.send(binaryMessage.encode('utf-8'))
-		elif operation == "KEEPALIVE":
-			reply = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"KEEPALIVE","SESSION":session_id})
-			client.send(reply.encode('utf-8'))
+	try:
+		strMsg = message.strip().decode('utf-8', 'ignore')
+		if len(strMsg) > 0:
+			index = strMsg.find("{")
+			tmp = strMsg[index:]
+			loaded_json = json.loads(tmp)
+			operation = loaded_json['OPERATION']
+			session_id = loaded_json['SESSION']
+			if operation == "CONNECT":
+				#device_id = loaded_json['PARAMETER']['DSNO']
+				connectionReply(client, session_id)
+			elif operation == "KEEPALIVE":
+				reply = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"KEEPALIVE","SESSION":session_id})
+				client.send(reply.encode('utf-8'))
+	except Exception as e:
+		logging.error("Failed fam!: {}".format(e))
+		print("Failed fam!: {}".format(e))
+
+def connectionReply(client, session_id):
+	payloadJson = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"CONNECT","RESPONSE":{"DEVTYPE":1,"ERRORCAUSE":"","ERRORCODE":0,"MASKCMD":1,"PRO":"1.0.4","VCODE":""},"SESSION":session_id})
+	payload = str(payloadJson).replace(" ", "")
+	pLength = sys.getsizeof(payload)
+	completeMessage = "00000000" + format(pLength, 'x').zfill(8) + "52000000" + payload
+	client.send(completeMessage.encode('utf-8'))
+	#payloadJsonBinary = json.dumps({"MODULE":"CONFIGMODEL","OPERATION":"SET","PARAMETER":{"MDVR":{"KEYS":{"GV":1},"PGDSM":{"PGPS":{"EN":1}},"PIS":{"PC041245T":{"GU":{"EN":1,"IT":5}}},"PSI":{"CG":{"UEM":0}}}},"SESSION":session_id})
+	#payloadBinary = str(payloadJson).replace(" ", "")
+	#pLengthBinary = sys.getsizeof(payload)
+	#completeMessageBinary = "00000000" + format(pLengthBinary, 'x').zfill(8) + "52000000" + payloadBinary
+	#client.send(completeMessageBinary.encode('utf-8'))
+
+try: 
+	sck.bind((args.host, args.port))
+	sck.listen(5)
+	#records = get_vehicles()
+except Exception as e:
+	raise SystemExit("We could not bind the server on host: {} to port: {}, because: {}".format(args.host, args.port, e))
 
 while True:
 	try: 
