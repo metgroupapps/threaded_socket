@@ -39,26 +39,26 @@ def on_new_client(client, connection):
 	logging.info("The new connection was made from IP: {}, and port: {}!".format(ip, port))
 	while True:
 		msg = client.recv(1024)
-		logging.info("Clean data: {}".format(msg))
-		handle_message(client, msg)
+		strMsg = msg.strip().decode('utf-8', 'ignore')	
+		if len(strMsg) > 0:
+			logging.info("Clean data: {}".format(msg))
+			handle_message(client, strMsg)
 	client.close()
 	logging.info("The client from ip: {}, and port: {}, has gracefully disconnected!".format(ip, port))
 
-def handle_message(client, message):
+def handle_message(client, strMsg):
 	try:
-		strMsg = message.strip().decode('utf-8', 'ignore')
-		if len(strMsg) > 0:
-			index = strMsg.find("{")
-			tmp = strMsg[index:]
-			loaded_json = json.loads(tmp)
-			operation = loaded_json['OPERATION']
-			session_id = loaded_json['SESSION']
-			if operation == "CONNECT":
-				#device_id = loaded_json['PARAMETER']['DSNO']
-				connectionReply(client, session_id)
-			elif operation == "KEEPALIVE":
-				reply = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"KEEPALIVE","SESSION":session_id})
-				client.send(reply.encode('utf-8'))
+		index = strMsg.find("{")
+		tmp = strMsg[index:]
+		loaded_json = json.loads(tmp)
+		operation = loaded_json['OPERATION']
+		session_id = loaded_json['SESSION']
+		if operation == "CONNECT":
+			#device_id = loaded_json['PARAMETER']['DSNO']
+			connectionReply(client, session_id)
+		elif operation == "KEEPALIVE":
+			reply = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"KEEPALIVE","SESSION":session_id})
+			client.send(reply.encode('utf-8'))
 	except Exception as e:
 		logging.error("Failed fam!: {}".format(e))
 		print("Failed fam!: {}".format(e))
