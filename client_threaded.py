@@ -22,5 +22,5 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sck:
 			print("Client is saying goodbye!")
 			break
 		data = sck.recv(1024)
-		print("The server's response was: {}".format(data.decode()))
+		print("The server's response was: {}".format(data))
 		time.sleep(5)
