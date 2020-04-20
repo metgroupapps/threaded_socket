@@ -3,11 +3,14 @@ import socket
 import argparse
 import threading
 import logging
+import json 
 import yaml 
 import psycopg2
-import json 
-from json import JSONDecoder
+from struct import *
 from datetime import datetime
+
+FIRST_PART = pack('i', 0)
+END_PART = pack('<i', 82)
 
 logging.basicConfig(filename='developer_info.log', level=logging.DEBUG, format='%(asctime)s:%(levelname)s:%(message)s')
 
@@ -67,12 +70,15 @@ def connectionReply(client, session_id):
 	payloadJson = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"CONNECT","RESPONSE":{"DEVTYPE":1,"ERRORCAUSE":"","ERRORCODE":0,"MASKCMD":1,"PRO":"1.0.4","VCODE":""},"SESSION":session_id})
 	payload = str(payloadJson).replace(" ", "")
 	pLength = sys.getsizeof(payload)
-	completeMessage = "00000000" + format(pLength, 'x').zfill(8) + "52000000" + payload
-	client.send(completeMessage.encode('utf-8'))
+	midPart = pack('>i', pLength)
+	completeMessage = FIRST_PART + midPart + END_PART + payload.encode('utf-8')
+	print(completeMessage)
+	client.send(completeMessage)
 	#payloadJsonBinary = json.dumps({"MODULE":"CONFIGMODEL","OPERATION":"SET","PARAMETER":{"MDVR":{"KEYS":{"GV":1},"PGDSM":{"PGPS":{"EN":1}},"PIS":{"PC041245T":{"GU":{"EN":1,"IT":5}}},"PSI":{"CG":{"UEM":0}}}},"SESSION":session_id})
-	#payloadBinary = str(payloadJson).replace(" ", "")
-	#pLengthBinary = sys.getsizeof(payload)
-	#completeMessageBinary = "00000000" + format(pLengthBinary, 'x').zfill(8) + "52000000" + payloadBinary
+	#payloadBinary = str(payloadJsonBinary).replace(" ", "")
+	#pLengthBinary = sys.getsizeof(payloadBinary)
+	#midPartBinary = pack('>i', pLengthBinary)
+	#completeMessageBinary = FIRST_PART +  midPartBinary + END_PART
 	#client.send(completeMessageBinary.encode('utf-8'))
 
 try: 
