@@ -17,7 +17,7 @@ logging.basicConfig(filename='developer_info.log', level=logging.DEBUG, format='
 conf = yaml.load(open('application.yml'), Loader=yaml.BaseLoader)
 
 class TCPServer(protocol.Protocol):
-    
+
   def dataReceived(self, data):
     strMsg = data.strip().decode('utf-8', 'ignore')
     try:
@@ -49,8 +49,18 @@ class TCPServer(protocol.Protocol):
     self.transport.write(completeMessage)
 
 
+def get_vehicles():
+	connection = psycopg2.connect(user = conf['db']['user'], password = conf['db']['password'], host = conf['db']['host'], port = conf['db']['port'], database = conf['db']['database'])
+	cursor = connection.cursor()
+	cursor.execute('SELECT id, internal_code FROM vehicles ORDER BY id ASC')
+	x = cursor.fetchall()
+	if(connection):
+		cursor.close()
+		connection.close()
+	return x
+
 def main():
-  factory = protocol.ServerFactory()
+  factory = protocol.ServerFactory()  
   factory.protocol = TCPServer
   reactor.listenTCP(8443,factory)
   reactor.run()
