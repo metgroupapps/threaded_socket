@@ -3,6 +3,7 @@ import argparse
 import time
 
 parser = argparse.ArgumentParser(description="This is the client")
+parser.add_argument('--timeout', metavar = 'timeout', type = float, nargs = '?', default = 0.5)
 parser.add_argument('--host', metavar='host', type=str, nargs='?', default=socket.gethostname())
 parser.add_argument('--port', metavar = 'port', type = int, nargs = '?', default = 8443)
 args = parser.parse_args()
@@ -23,4 +24,4 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sck:
 			break
 		data = sck.recv(1024)
 		print("The server's response was: {}".format(data))
-		time.sleep(0.5)
+		time.sleep(args.timeout)
