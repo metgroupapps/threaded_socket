@@ -1,8 +1,9 @@
 import sys
-import logging
 import json 
 import yaml 
 import psycopg2
+import logging
+from logging.handlers import TimedRotatingFileHandler
 from struct import pack, unpack
 from datetime import datetime
 from twisted.protocols.policies import TimeoutMixin
@@ -10,7 +11,7 @@ from twisted.internet import reactor, protocol
 
 FIRST_PART = pack('i', 0)
 END_PART = pack('<i', 82)
-logging.basicConfig(filename='developer_info.log', level=logging.DEBUG, format='%(asctime)s:%(levelname)s:%(message)s')
+logging.basicConfig(filename='developer_info_{}.log'.format(), level=logging.DEBUG, format='%(asctime)s:%(levelname)s:%(message)s')
 conf = yaml.load(open('application.yml'), Loader=yaml.BaseLoader)
 
 class TCPServer(protocol.Protocol, TimeoutMixin):
