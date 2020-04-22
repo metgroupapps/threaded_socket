@@ -62,6 +62,7 @@ def get_vehicles():
 '''
 
 def main():
+  print("Running TCP Server")
   factory = protocol.ServerFactory()  
   factory.protocol = TCPServer
   reactor.listenTCP(8443,factory)
