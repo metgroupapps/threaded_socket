@@ -23,4 +23,4 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sck:
 			break
 		data = sck.recv(1024)
 		print("The server's response was: {}".format(data))
-		time.sleep(5)
+		time.sleep(0.5)
