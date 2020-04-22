@@ -6,7 +6,7 @@ import logging
 import json 
 import yaml 
 import psycopg2
-from struct import *
+from struct import pack, unpack
 from datetime import datetime
 
 FIRST_PART = pack('i', 0)
