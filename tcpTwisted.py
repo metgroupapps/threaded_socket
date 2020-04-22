@@ -5,6 +5,7 @@ import yaml
 import psycopg2
 from struct import pack, unpack
 from datetime import datetime
+from twisted.protocols.policies import TimeoutMixin
 from twisted.internet import reactor, protocol
 
 FIRST_PART = pack('i', 0)
@@ -12,9 +13,10 @@ END_PART = pack('<i', 82)
 logging.basicConfig(filename='developer_info.log', level=logging.DEBUG, format='%(asctime)s:%(levelname)s:%(message)s')
 conf = yaml.load(open('application.yml'), Loader=yaml.BaseLoader)
 
-class TCPServer(protocol.Protocol):
+class TCPServer(protocol.Protocol, TimeoutMixin):
 
   def connectionMade(self):
+    self.setTimeout(40)
     peer = self.transport.getPeer()
     logging.info("MVR: ip-> {}, port-> {}".format(peer.host, peer.port))
 
@@ -28,6 +30,7 @@ class TCPServer(protocol.Protocol):
       operation = loaded_json['OPERATION']
       session_id = loaded_json['SESSION']
       self.connectionReply(session_id, operation)
+      self.resetTimeout()
     except Exception as e:
       logging.error("Failed fam!: {}".format(e))
       print("Failed fam!: {}".format(e))
@@ -48,6 +51,9 @@ class TCPServer(protocol.Protocol):
     midPart = pack('>i', pLength)
     completeMessage = FIRST_PART + midPart + END_PART + payload.encode('utf-8')
     self.transport.write(completeMessage)
+
+  def timeoutConnection(self):
+    self.transport.abortConnection()
 
 '''
 def get_vehicles():
