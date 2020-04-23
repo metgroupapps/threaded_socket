@@ -21,19 +21,20 @@ class TCPServer(protocol.Protocol, TimeoutMixin):
     logging.info("MVR: ip-> {}, port-> {}".format(peer.host, peer.port))
 
   def dataReceived(self, data):
-    logging.debug("Clean data: {}".format(data))
-    strMsg = data.strip().decode('utf-8', 'ignore')
-    try:
-      index = strMsg.find("{")
-      tmp = strMsg[index:]
-      loaded_json = json.loads(tmp)
-      operation = loaded_json['OPERATION']
-      session_id = loaded_json['SESSION']
-      self.connectionReply(session_id, operation)
-      self.resetTimeout()
-    except Exception as e:
-      logging.error("Failed fam!: {}".format(e))
-      print("Failed fam!: {}".format(e))
+    if len(data) > 1
+      logging.debug("Clean data: {}".format(data))
+      strMsg = data.strip().decode('utf-8', 'ignore')
+      try:
+        index = strMsg.find("{")
+        tmp = strMsg[index:]
+        loaded_json = json.loads(tmp)
+        operation = loaded_json['OPERATION']
+        session_id = loaded_json['SESSION']
+        self.connectionReply(session_id, operation)
+        self.resetTimeout()
+      except Exception as e:
+        logging.error("Failed fam!: {}".format(e))
+        print("Failed fam!: {}".format(e))
     
   def connectionReply(self, session_id, operation):
     if operation == "CONNECT":
