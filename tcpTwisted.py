@@ -1,3 +1,4 @@
+import sys
 import json 
 import yaml 
 import psycopg2
@@ -13,24 +14,30 @@ END_PART = pack('<i', 82)
 logging.basicConfig(filename='developer_info.log', level=logging.DEBUG, format='%(asctime)s:%(levelname)s:%(message)s')
 conf = yaml.load(open('application.yml'), Loader=yaml.BaseLoader)
 
-class TCPServer(protocol.Protocol, TimeoutMixin):
+class TCPServerMVR(protocol.Protocol, TimeoutMixin):
 
   def connectionMade(self):
     self.setTimeout(40)
     peer = self.transport.getPeer()
+    self.ipAddr = peer.host
+    self.port = peer.port
     logging.info("MVR: ip-> {}, port-> {}".format(peer.host, peer.port))
 
   def dataReceived(self, data):
-    if len(data) > 1
+    if len(data) > 1:
       logging.debug("Clean data: {}".format(data))
-      strMsg = data.strip().decode('utf-8', 'ignore')
       try:
+        strMsg = data.strip().decode('utf-8', 'ignore')
         index = strMsg.find("{")
-        tmp = strMsg[index:]
-        loaded_json = json.loads(tmp)
-        operation = loaded_json['OPERATION']
-        session_id = loaded_json['SESSION']
-        self.connectionReply(session_id, operation)
+        if index > -1:
+          tmp = strMsg[index:]
+          loaded_json = json.loads(tmp)
+          operation = loaded_json['OPERATION']
+          session_id = loaded_json['SESSION']
+          self.deviceId = loaded_json['PARAMETER']['DSNO']
+          self.connectionReply(session_id, operation)
+        else:
+          self.handleRegularReports(data)  
         self.resetTimeout()
       except Exception as e:
         logging.error("Failed fam!: {}".format(e))
@@ -53,25 +60,49 @@ class TCPServer(protocol.Protocol, TimeoutMixin):
     completeMessage = FIRST_PART + midPart + END_PART + payload.encode('utf-8')
     self.transport.write(completeMessage)
 
+  def handleRegularReports(self, data):
+    size = unpack('>i', data[0:12][4:8])[0] + 12
+    splitedData = list(self.chunked(size, data))
+    for msg in splitedData:  
+      if msg[12:13] == b'\x00':
+        gpsStatus = 'ok'
+      elif msg[12:13] == b'\x01':
+        gpsStatus ='bad'
+      else:
+        gpsStatus = 'no gps'
+      latitude = unpack('>i',msg[20:24])[0]/1000000
+      longitude = unpack('>i',msg[16:20])[0]/100000000
+      speed =  unpack('>i',msg[24:28])[0]/100
+      angle =  unpack('>i',msg[28:32])[0]/100
+      altitude =  unpack('>i',msg[32:36])[0]
+      date = datetime.strptime(msg[36:].decode('utf-8', 'ignore').rstrip('\x00') + "-05:00", '%Y%m%d%H%M%S%f%z').strftime('%Y/%m/%d %H:%M:%S:%f %z')
+      finalValues = {'gpsStatus': gpsStatus, 'latitude': latitude, 'longitude': longitude, 'speed': speed, 'angle': angle, 'altitude': altitude, 'date': date}      
+      self.createOnDb(finalValues)
+
+  def chunked(self, size, source):
+    for i in range(0, len(source), size):
+      yield source[i:i+size]
+  
+  def createOnDb(self, values):
+    #connection = psycopg2.connect(user = conf['db']['user'], password = conf['db']['password'], host = conf['db']['host'], port = conf['db']['port'], database = conf['db']['database'])
+    #cursor = connection.cursor()
+    sql = """INSERT INTO devices(device_id, vehicle, parsed_data) VALUES(%s,%s,%s);"""
+    values= (self.deviceId, '', json.dumps(values))
+    print(values)
+    #cursor.execute(sql, values)
+    #cursor.close()
+    #connection.close()
+
   def timeoutConnection(self):
     self.transport.abortConnection()
 
-'''
-def get_vehicles():
-	connection = psycopg2.connect(user = conf['db']['user'], password = conf['db']['password'], host = conf['db']['host'], port = conf['db']['port'], database = conf['db']['database'])
-	cursor = connection.cursor()
-	cursor.execute('SELECT id, internal_code FROM vehicles ORDER BY id ASC')
-	x = cursor.fetchall()
-	if(connection):
-		cursor.close()
-		connection.close()
-	return x
-'''
+
+
 
 def main():
   print("Running TCP Server")
   factory = protocol.ServerFactory()  
-  factory.protocol = TCPServer
+  factory.protocol = TCPServerMVR
   reactor.listenTCP(8443,factory)
   reactor.run()
 
