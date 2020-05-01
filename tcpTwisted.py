@@ -35,6 +35,7 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
           operation = loaded_json['OPERATION']
           session_id = loaded_json['SESSION']
           self.deviceId = loaded_json['PARAMETER']['DSNO']
+          self.autocar = loaded_json['PARAMETER']['AUTOCAR']
           self.connectionReply(session_id, operation)
         else:
           self.handleRegularReports(data)  
@@ -70,28 +71,29 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
         gpsStatus ='bad'
       else:
         gpsStatus = 'no gps'
-      latitude = unpack('>i',msg[20:24])[0]/1000000
-      longitude = unpack('>i',msg[16:20])[0]/100000000
-      speed =  unpack('>i',msg[24:28])[0]/100
-      angle =  unpack('>i',msg[28:32])[0]/100
-      altitude =  unpack('>i',msg[32:36])[0]
-      date = datetime.strptime(msg[36:].decode('utf-8', 'ignore').rstrip('\x00') + "-05:00", '%Y%m%d%H%M%S%f%z').strftime('%Y/%m/%d %H:%M:%S:%f %z')
-      finalValues = {'gpsStatus': gpsStatus, 'latitude': latitude, 'longitude': longitude, 'speed': speed, 'angle': angle, 'altitude': altitude, 'date': date}      
-      self.createOnDb(finalValues)
+        latitude = unpack('>i',msg[20:24])[0]/1000000
+        longitude = unpack('>i',msg[16:20])[0]/100000000
+        speed =  unpack('>i',msg[24:28])[0]/100
+        angle =  unpack('>i',msg[28:32])[0]/100
+        altitude =  unpack('>i',msg[32:36])[0]
+        date = datetime.strptime(msg[36:].decode('utf-8', 'ignore').rstrip('\x00') + "-05:00", '%Y%m%d%H%M%S%f%z').strftime('%Y/%m/%d %H:%M:%S:%f %z')
+        finalValues = {'gpsStatus': gpsStatus, 'latitude': latitude, 'longitude': longitude, 'speed': speed, 'angle': angle, 'altitude': altitude, 'date': date}      
+        self.createOnDb(finalValues)
 
   def chunked(self, size, source):
     for i in range(0, len(source), size):
       yield source[i:i+size]
   
   def createOnDb(self, values):
-    #connection = psycopg2.connect(user = conf['db']['user'], password = conf['db']['password'], host = conf['db']['host'], port = conf['db']['port'], database = conf['db']['database'])
-    #cursor = connection.cursor()
-    sql = """INSERT INTO devices(device_id, vehicle, parsed_data) VALUES(%s,%s,%s);"""
-    values= (self.deviceId, '', json.dumps(values))
+    connection = psycopg2.connect(user = conf['db']['user'], password = conf['db']['password'], host = conf['db']['host'], port = conf['db']['port'], database = conf['db']['database'])
+    cursor = connection.cursor()
+    sql = """INSERT INTO devices(device_id, vehicle, message_data, message_kind) VALUES(%s,%s,%s,%s);"""
+    values= (self.deviceId, self.autocar, json.dumps(values), 0) #datetime.utcnow()
+    logging.debug("Parsed Msg: {}".format(values))
     print(values)
-    #cursor.execute(sql, values)
-    #cursor.close()
-    #connection.close()
+    cursor.execute(sql, values)
+    cursor.close()
+    connection.close()
 
   def timeoutConnection(self):
     self.transport.abortConnection()
