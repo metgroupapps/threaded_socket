@@ -1,8 +1,9 @@
 import sys
 import json 
 import yaml 
-import psycopg2
 import logging
+import time
+import psycopg2
 from logging.handlers import TimedRotatingFileHandler
 from struct import pack, unpack
 from datetime import datetime
@@ -21,28 +22,30 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
     peer = self.transport.getPeer()
     self.ipAddr = peer.host
     self.port = peer.port
+    print(self.ipAddr, self.port)
     logging.info("MVR: ip-> {}, port-> {}".format(peer.host, peer.port))
 
   def dataReceived(self, data):
-    if len(data) > 1:
-      logging.debug("Clean data: {}".format(data))
-      try:
+    logging.debug("Clean data: {}".format(data))
+    try:
+      if data[0:2] == b'\x08\x00':
+        print('Connection')
         strMsg = data.strip().decode('utf-8', 'ignore')
         index = strMsg.find("{")
-        if index > -1:
-          tmp = strMsg[index:]
-          loaded_json = json.loads(tmp)
-          operation = loaded_json['OPERATION']
-          session_id = loaded_json['SESSION']
+        tmp = strMsg[index:]
+        loaded_json = json.loads(tmp)
+        operation = loaded_json['OPERATION']
+        session_id = loaded_json['SESSION']
+        if operation == "CONNECT":
           self.deviceId = loaded_json['PARAMETER']['DSNO']
           self.autocar = loaded_json['PARAMETER']['AUTOCAR']
-          self.connectionReply(session_id, operation)
-        else:
-          self.handleRegularReports(data)  
-        self.resetTimeout()
-      except Exception as e:
-        logging.error("Failed fam!: {}".format(e))
-        print("Failed fam!: {}".format(e))
+        self.connectionReply(session_id, operation)
+      elif data[0:2] == b'\x08\x16':
+        self.handleRegularReports(data)
+    except Exception as e:  
+      #logging.error("Failed fam!: {}".format(e))
+      print("Failed fam!: {}".format(e))
+    self.resetTimeout()
     
   def connectionReply(self, session_id, operation):
     if operation == "CONNECT":
@@ -62,15 +65,18 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
     self.transport.write(completeMessage)
 
   def handleRegularReports(self, data):
-    size = unpack('>i', data[0:12][4:8])[0] + 12
-    splitedData = list(self.chunked(size, data))
-    for msg in splitedData:  
-      if msg[12:13] == b'\x00':
-        gpsStatus = 'ok'
-      elif msg[12:13] == b'\x01':
-        gpsStatus ='bad'
-      else:
-        gpsStatus = 'no gps'
+    try:
+      connection = psycopg2.connect(user = conf['db']['user'], password = conf['db']['password'], host = conf['db']['host'], port = conf['db']['port'], database = conf['db']['database'])
+      cursor = connection.cursor()
+      size = unpack('>i', data[0:12][4:8])[0] + 12
+      splitedData = list(self.chunked(size, data))
+      for msg in splitedData:  
+        if msg[12:13] == b'\x00':
+          gpsStatus = 'ok'
+        elif msg[12:13] == b'\x01':
+          gpsStatus ='bad'
+        else:
+          gpsStatus = 'no gps'
         latitude = unpack('>i',msg[20:24])[0]/1000000
         longitude = unpack('>i',msg[16:20])[0]/100000000
         speed =  unpack('>i',msg[24:28])[0]/100
@@ -78,27 +84,32 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
         altitude =  unpack('>i',msg[32:36])[0]
         date = datetime.strptime(msg[36:].decode('utf-8', 'ignore').rstrip('\x00') + "-05:00", '%Y%m%d%H%M%S%f%z').strftime('%Y/%m/%d %H:%M:%S:%f %z')
         finalValues = {'gpsStatus': gpsStatus, 'latitude': latitude, 'longitude': longitude, 'speed': speed, 'angle': angle, 'altitude': altitude, 'date': date}      
-        self.createOnDb(finalValues)
+        self.createOnDb(connection, cursor, finalValues)
+    except (Exception, psycopg2.Error) as error:
+      if(connection):
+        print("Failed to insert record into mobile table", error)
+    finally:
+      if(connection):
+        cursor.close()
+        connection.close()
+        print("PostgreSQL connection is closed")
 
   def chunked(self, size, source):
     for i in range(0, len(source), size):
       yield source[i:i+size]
   
-  def createOnDb(self, values):
-    connection = psycopg2.connect(user = conf['db']['user'], password = conf['db']['password'], host = conf['db']['host'], port = conf['db']['port'], database = conf['db']['database'])
-    cursor = connection.cursor()
-    sql = """INSERT INTO devices(device_id, vehicle, message_data, message_kind) VALUES(%s,%s,%s,%s);"""
-    values= (self.deviceId, self.autocar, json.dumps(values), 0) #datetime.utcnow()
-    logging.debug("Parsed Msg: {}".format(values))
-    print(values)
-    cursor.execute(sql, values)
-    cursor.close()
-    connection.close()
+  def createOnDb(self, connection, cursor, values):
+    sql = "INSERT INTO mvr_messages(device_id, vehicle_internal_code, kind, parsed_data, created_at, updated_at) VALUES(%s,%s,%s,%s,%s,%s)"
+    strVal = json.dumps(values)
+    timeNow = datetime.utcnow()
+    storeValues= (self.deviceId, self.autocar, 0, strVal, timeNow, timeNow)
+    query = cursor.execute(sql, storeValues)
+    connection.commit()
+    print("check: {}".format(query))
+    logging.debug("Parsed Msg: {}".format(storeValues))
 
   def timeoutConnection(self):
     self.transport.abortConnection()
-
-
 
 
 def main():
