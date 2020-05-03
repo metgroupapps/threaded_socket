@@ -22,14 +22,12 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
     peer = self.transport.getPeer()
     self.ipAddr = peer.host
     self.port = peer.port
-    print(self.ipAddr, self.port)
     logging.info("MVR: ip-> {}, port-> {}".format(peer.host, peer.port))
 
   def dataReceived(self, data):
     logging.debug("Clean data: {}".format(data))
     try:
       if data[0:2] == b'\x08\x00':
-        print('Connection')
         strMsg = data.strip().decode('utf-8', 'ignore')
         index = strMsg.find("{")
         tmp = strMsg[index:]
@@ -43,8 +41,7 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
       elif data[0:2] == b'\x08\x16':
         self.handleRegularReports(data)
     except Exception as e:  
-      #logging.error("Failed fam!: {}".format(e))
-      print("Failed fam!: {}".format(e))
+      logging.error("Failed fam!: {}".format(e))
     self.resetTimeout()
     
   def connectionReply(self, session_id, operation):
@@ -87,12 +84,11 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
         self.createOnDb(connection, cursor, finalValues)
     except (Exception, psycopg2.Error) as error:
       if(connection):
-        print("Failed to insert record into mobile table", error)
+        logging.error("Failed to insert record into mobile table: {}".format(error))
     finally:
       if(connection):
         cursor.close()
         connection.close()
-        print("PostgreSQL connection is closed")
 
   def chunked(self, size, source):
     for i in range(0, len(source), size):
@@ -105,7 +101,6 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
     storeValues= (self.deviceId, self.autocar, 0, strVal, timeNow, timeNow)
     query = cursor.execute(sql, storeValues)
     connection.commit()
-    print("check: {}".format(query))
     logging.debug("Parsed Msg: {}".format(storeValues))
 
   def timeoutConnection(self):
