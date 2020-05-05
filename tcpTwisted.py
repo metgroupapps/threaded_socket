@@ -9,6 +9,7 @@ from struct import pack, unpack
 from datetime import datetime
 from twisted.internet import reactor, protocol
 from twisted.protocols.policies import TimeoutMixin
+from bitstring import BitArray
 
 FIRST_PART = pack('i', 0)
 END_PART = pack('<i', 82)
@@ -26,6 +27,7 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
 
   def dataReceived(self, data):
     logging.debug("Clean data: {}".format(data))
+    print(data)
     try:
       if data[0:2] == b'\x08\x00':
         strMsg = data.strip().decode('utf-8', 'ignore')
@@ -38,8 +40,8 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
           self.deviceId = loaded_json['PARAMETER']['DSNO']
           self.autocar = loaded_json['PARAMETER']['AUTOCAR']
         self.connectionReply(session_id, operation)
-      elif data[0:2] == b'\x08\x16':
-        self.handleRegularReports(data)
+      #elif data[0:2] == b'\x08\x16':
+        #self.handleRegularReports(data)
     except Exception as e:  
       logging.error("Failed fam!: {}".format(e))
     self.resetTimeout()
@@ -47,9 +49,9 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
   def connectionReply(self, session_id, operation):
     if operation == "CONNECT":
       payloadJson = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"CONNECT","RESPONSE":{"DEVTYPE":1,"ERRORCAUSE":"","ERRORCODE":0,"MASKCMD":1,"PRO":"1.0.5","VCODE":""},"SESSION":session_id})
-      #payloadJsonBinary = json.dumps({"MODULE":"CONFIGMODEL","OPERATION":"SET","PARAMETER":{"MDVR":{"KEYS":{"GV":1},"PGDSM":{"PGPS":{"EN":1}},"PIS":{"PC041245T":{"GU":{"EN":1,"IT":5}}},"PSI":{"CG":{"UEM":0}}}},"SESSION":session_id})
+      payloadJsonBinary = json.dumps({"MODULE":"CONFIGMODEL","OPERATION":"SET","PARAMETER":{"MDVR":{"KEYS":{"GV":0},"PGDSM":{"PGPS":{"EN":1}},"PIS":{"PC041245T":{"GU":{"EN":1,"IT":5}}},"PSI":{"CG":{"UEM":0}}}},"SESSION":session_id})
       self.connectionMessage(payloadJson)
-      #self.connectionMessage(payloadJsonBinary)
+      self.connectionMessage(payloadJsonBinary)
     elif operation == "KEEPALIVE":
       reply = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"KEEPALIVE","SESSION":session_id})  
       self.connectionMessage(reply)
@@ -74,14 +76,15 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
           gpsStatus ='bad'
         else:
           gpsStatus = 'no gps'
+        longitude = unpack('>i',msg[16:20])[0]/1000000
         latitude = unpack('>i',msg[20:24])[0]/1000000
-        longitude = unpack('>i',msg[16:20])[0]/100000000
         speed =  unpack('>i',msg[24:28])[0]/100
         angle =  unpack('>i',msg[28:32])[0]/100
         altitude =  unpack('>i',msg[32:36])[0]
         date = datetime.strptime(msg[36:].decode('utf-8', 'ignore').rstrip('\x00') + "-05:00", '%Y%m%d%H%M%S%f%z').strftime('%Y/%m/%d %H:%M:%S:%f %z')
         finalValues = {'gpsStatus': gpsStatus, 'latitude': latitude, 'longitude': longitude, 'speed': speed, 'angle': angle, 'altitude': altitude, 'date': date}      
-        self.createOnDb(connection, cursor, finalValues)
+        print(finalValues)
+        #self.createOnDb(connection, cursor, finalValues)
     except (Exception, psycopg2.Error) as error:
       if(connection):
         logging.error("Failed to insert record into mobile table: {}".format(error))
@@ -89,7 +92,7 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
       if(connection):
         cursor.close()
         connection.close()
-
+    
   def chunked(self, size, source):
     for i in range(0, len(source), size):
       yield source[i:i+size]
@@ -99,7 +102,7 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
     strVal = json.dumps(values)
     timeNow = datetime.utcnow()
     storeValues= (self.deviceId, self.autocar, 0, strVal, timeNow, timeNow)
-    query = cursor.execute(sql, storeValues)
+    cursor.execute(sql, storeValues)
     connection.commit()
     logging.debug("Parsed Msg: {}".format(storeValues))
 
