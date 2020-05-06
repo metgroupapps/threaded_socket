@@ -99,3 +99,38 @@ while True:
 		print("Well I did not anticipate this: {}".format(e))
 
 sck.close()
+
+
+def handleRegularReports(self, data):
+    try:
+      connection = psycopg2.connect(user = conf['db']['user'], password = conf['db']['password'], host = conf['db']['host'], port = conf['db']['port'], database = conf['db']['database'])
+      cursor = connection.cursor()
+      size = unpack('>i', data[0:12][4:8])[0] + 12
+      splitedData = list(self.chunked(size, data))
+      for msg in splitedData:  
+        if msg[12:13] == b'\x00':
+          gpsStatus = 'ok'
+        elif msg[12:13] == b'\x01':
+          gpsStatus ='bad'
+        else:
+          gpsStatus = 'no gps'
+        longitude = unpack('>i',msg[16:20])[0]/1000000
+        latitude = unpack('>i',msg[20:24])[0]/1000000
+        speed =  unpack('>i',msg[24:28])[0]/100
+        angle =  unpack('>i',msg[28:32])[0]/100
+        altitude =  unpack('>i',msg[32:36])[0]
+        date = datetime.strptime(msg[36:].decode('utf-8', 'ignore').rstrip('\x00') + "-05:00", '%Y%m%d%H%M%S%f%z').strftime('%Y/%m/%d %H:%M:%S:%f %z')
+        finalValues = {'gpsStatus': gpsStatus, 'latitude': latitude, 'longitude': longitude, 'speed': speed, 'angle': angle, 'altitude': altitude, 'date': date}      
+        print(finalValues)
+        #self.createOnDb(connection, cursor, finalValues)
+    except (Exception, psycopg2.Error) as error:
+      if(connection):
+        logging.error("Failed to insert record into mobile table: {}".format(error))
+    finally:
+      if(connection):
+        cursor.close()
+        connection.close()
+    
+  def chunked(self, size, source):
+    for i in range(0, len(source), size):
+      yield source[i:i+size]
