@@ -27,7 +27,6 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
 
   def dataReceived(self, data):
     logging.debug("Clean data: {}".format(data))
-    print(data)
     try:
       if data[0:2] == b'\x08\x00':
         strMsg = data.strip().decode('utf-8', 'ignore')
@@ -35,26 +34,43 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
         tmp = strMsg[index:]
         loaded_json = json.loads(tmp)
         operation = loaded_json['OPERATION']
-        session_id = loaded_json['SESSION']
         if operation == "CONNECT":
+          self.session_id = loaded_json['SESSION']
           self.deviceId = loaded_json['PARAMETER']['DSNO']
           self.autocar = loaded_json['PARAMETER']['AUTOCAR']
-        self.connectionReply(session_id, operation)
-      #elif data[0:2] == b'\x08\x16':
-        #self.handleRegularReports(data)
+          self.connectionReply(operation)
+        elif operation == "SPI":
+          self.handleSPIMessages(loaded_json)
     except Exception as e:  
       logging.error("Failed fam!: {}".format(e))
     self.resetTimeout()
     
-  def connectionReply(self, session_id, operation):
+  def connectionReply(self, operation):
     if operation == "CONNECT":
-      payloadJson = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"CONNECT","RESPONSE":{"DEVTYPE":1,"ERRORCAUSE":"","ERRORCODE":0,"MASKCMD":1,"PRO":"1.0.5","VCODE":""},"SESSION":session_id})
-      payloadJsonBinary = json.dumps({"MODULE":"CONFIGMODEL","OPERATION":"SET","PARAMETER":{"MDVR":{"KEYS":{"GV":0},"PGDSM":{"PGPS":{"EN":1}},"PIS":{"PC041245T":{"GU":{"EN":1,"IT":5}}},"PSI":{"CG":{"UEM":0}}}},"SESSION":session_id})
+      payloadJson = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"CONNECT","RESPONSE":{"DEVTYPE":1,"ERRORCAUSE":"","ERRORCODE":0,"MASKCMD":1,"PRO":"1.0.5","VCODE":""},"SESSION":self.session_id})
+      payloadJsonBinary = json.dumps({"MODULE":"CONFIGMODEL","OPERATION":"SET","PARAMETER":{"MDVR":{"KEYS":{"GV":0},"PGDSM":{"PGPS":{"EN":1}},"PIS":{"PC041245T":{"GU":{"EN":1,"IT":5}}},"PSI":{"CG":{"UEM":0}}}},"SESSION":self.session_id})
       self.connectionMessage(payloadJson)
       self.connectionMessage(payloadJsonBinary)
     elif operation == "KEEPALIVE":
-      reply = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"KEEPALIVE","SESSION":session_id})  
+      reply = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"KEEPALIVE","SESSION":self.session_id})  
       self.connectionMessage(reply)
+
+  def handleSPIMessages(self, data):
+    try:
+      connection = psycopg2.connect(user = conf['db']['user'], password = conf['db']['password'], host = conf['db']['host'], port = conf['db']['port'], database = conf['db']['database'])
+      cursor = connection.cursor()
+      print(data)
+      if data['PARAMETER']['M'] == 1 and data['PARAMETER']['REAL'] == 0:
+        date = datetime.strptime(data['PARAMETER']['P']['T'] + "-05:00", '%Y%m%d%H%M%S%f%z')
+        finalValues = {'gpsStatus': data['PARAMETER']['P']['V'], 'latitude': data['PARAMETER']['P']['W'], 'longitude': data['PARAMETER']['P']['J'], 'speed': data['PARAMETER']['P']['S'], 'angle': data['PARAMETER']['P']['C'], 'date': date.strftime('%Y/%m/%d %H:%M:%S:%f %z')}
+        self.createOnDb(connection, cursor, finalValues)
+    except (Exception) as error: #, psycopg2.Error
+      if(connection):
+        logging.error("Failed to insert record into mobile table: {}".format(error))
+    finally:
+      if(connection):
+        cursor.close()
+        connection.close()
 
   def connectionMessage(self, payloadJson):
     payload = str(payloadJson).replace(" ", "")
@@ -62,40 +78,6 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
     midPart = pack('>i', pLength)
     completeMessage = FIRST_PART + midPart + END_PART + payload.encode('utf-8')
     self.transport.write(completeMessage)
-
-  def handleRegularReports(self, data):
-    try:
-      connection = psycopg2.connect(user = conf['db']['user'], password = conf['db']['password'], host = conf['db']['host'], port = conf['db']['port'], database = conf['db']['database'])
-      cursor = connection.cursor()
-      size = unpack('>i', data[0:12][4:8])[0] + 12
-      splitedData = list(self.chunked(size, data))
-      for msg in splitedData:  
-        if msg[12:13] == b'\x00':
-          gpsStatus = 'ok'
-        elif msg[12:13] == b'\x01':
-          gpsStatus ='bad'
-        else:
-          gpsStatus = 'no gps'
-        longitude = unpack('>i',msg[16:20])[0]/1000000
-        latitude = unpack('>i',msg[20:24])[0]/1000000
-        speed =  unpack('>i',msg[24:28])[0]/100
-        angle =  unpack('>i',msg[28:32])[0]/100
-        altitude =  unpack('>i',msg[32:36])[0]
-        date = datetime.strptime(msg[36:].decode('utf-8', 'ignore').rstrip('\x00') + "-05:00", '%Y%m%d%H%M%S%f%z').strftime('%Y/%m/%d %H:%M:%S:%f %z')
-        finalValues = {'gpsStatus': gpsStatus, 'latitude': latitude, 'longitude': longitude, 'speed': speed, 'angle': angle, 'altitude': altitude, 'date': date}      
-        print(finalValues)
-        #self.createOnDb(connection, cursor, finalValues)
-    except (Exception, psycopg2.Error) as error:
-      if(connection):
-        logging.error("Failed to insert record into mobile table: {}".format(error))
-    finally:
-      if(connection):
-        cursor.close()
-        connection.close()
-    
-  def chunked(self, size, source):
-    for i in range(0, len(source), size):
-      yield source[i:i+size]
   
   def createOnDb(self, connection, cursor, values):
     sql = "INSERT INTO mvr_messages(device_id, vehicle_internal_code, kind, parsed_data, created_at, updated_at) VALUES(%s,%s,%s,%s,%s,%s)"
