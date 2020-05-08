@@ -29,7 +29,6 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
     logging.debug("Clean data: {}".format(data))
     try:
       connection = psycopg2.connect(user = conf['db']['user'], password = conf['db']['password'], host = conf['db']['host'], port = conf['db']['port'], database = conf['db']['database'])
-      cursor = connection.cursor()
       if data[0:2] == b'\x08\x00':
         strMsg = data.strip().decode('utf-8', 'ignore')
         index = strMsg.find("{")
@@ -42,9 +41,9 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
           self.autocar = loaded_json['PARAMETER']['AUTOCAR']
           self.connectionReply(operation)
         elif operation == "SPI":
-          self.handleSPIMessages(loaded_json, connection, cursor)
+          self.handleSPIMessages(loaded_json, connection)
         elif operation == "SENDALARMINFO":
-          self.handleAlarms(loaded_json, connection, cursor)
+          self.handleAlarms(loaded_json, connection)
     except Exception as e:  
       logging.error("Failed fam!: {}".format(e))
     self.resetTimeout()
@@ -66,43 +65,38 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
     completeMessage = FIRST_PART + midPart + END_PART + payload.encode('utf-8')
     self.transport.write(completeMessage)
   
-  def handleSPIMessages(self, data, connection, cursor):
+  def handleSPIMessages(self, data, connection):
     try:
       if data['PARAMETER']['M'] == 1 and data['PARAMETER']['REAL'] == 0:
         date = datetime.strptime(data['PARAMETER']['P']['T'] + "-05:00", '%Y%m%d%H%M%S%f%z')
-        finalValues = {'gpsStatus': data['PARAMETER']['P']['V'], 'latitude': data['PARAMETER']['P']['W'], 'longitude': data['PARAMETER']['P']['J'], 'speed': data['PARAMETER']['P']['S'], 'angle': data['PARAMETER']['P']['C'], 'date': date.strftime('%Y/%m/%d %H:%M:%S:%f %z')}
-        self.createOnDb(connection, cursor, finalValues, 0)
+        finalValues = {'gpsStatus': data['PARAMETER']['P']['V'], 'latitude': data['PARAMETER']['P']['W'], 'longitude': data['PARAMETER']['P']['J'], 'speed': data['PARAMETER']['P']['S'], 'angle': data['PARAMETER']['P']['C'], 'date': date.strftime('%Y/%m/%d %H:%M:%S %z')}
+        self.createOnDb(connection, finalValues, 0)
     except (Exception) as error: #, psycopg2.Error
       if(connection):
         logging.error("Failed to parse: {}".format(error))
-    finally:
-      if(connection):
-        cursor.close()
-        connection.close()
 
-  def handleAlarms(self, data, cursor, connection):
+  def handleAlarms(self, data, connection):
     try:
       alertTime = datetime.utcfromtimestamp(data['PARAMETER']["CURRENTTIME"])
       date = datetime.strptime(data['PARAMETER']['P']['T'] + "-05:00", '%Y%m%d%H%M%S%f%z')
       finalValues = {'gpsStatus': data['PARAMETER']['P']['V'], 'latitude': data['PARAMETER']['P']['W'], 'longitude': data['PARAMETER']['P']['J'], 'speed': data['PARAMETER']['P']['S'], 'angle': data['PARAMETER']['P']['C'], 'date': date.strftime('%Y/%m/%d %H:%M:%S:%f %z')}
       data['PARAMETER']['P'] = finalValues
-      data['PARAMETER']["CURRENTTIME"] = alertTime.strftime('%Y/%m/%d %H:%M:%S:%f %z')
-      self.createOnDb(connection, cursor, data, 1)
+      data['PARAMETER']["CURRENTTIME"] = alertTime.strftime('%Y/%m/%d %H:%M:%S %z')
+      self.createOnDb(connection, data, 1)
     except (Exception) as error: #, psycopg2.Error
       if(connection):
         logging.error("Failed to parse: {}".format(error))
-    finally:
-      if(connection):
-        cursor.close()
-        connection.close()
 
-  def createOnDb(self, connection, cursor, values, typeMsg):
+  def createOnDb(self, connection, values, typeMsg):
+    cursor = connection.cursor()
     sql = "INSERT INTO mvr_messages(device_id, vehicle_internal_code, kind, parsed_data, created_at, updated_at) VALUES(%s,%s,%s,%s,%s,%s)"
     strVal = json.dumps(values)
     timeNow = datetime.utcnow()
     storeValues= (self.deviceId, self.autocar, typeMsg, strVal, timeNow, timeNow)
     cursor.execute(sql, storeValues)
     connection.commit()
+    cursor.close()
+    connection.close()
     logging.debug("Parsed Msg: {}".format(storeValues))
 
   def timeoutConnection(self):
