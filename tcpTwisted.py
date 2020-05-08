@@ -51,7 +51,7 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
       elif data[0:2] == b'\x08\x16':
         payloadJsonBinary = json.dumps({"MODULE":"CONFIGMODEL","OPERATION":"SET","PARAMETER":{"MDVR":{"KEYS":{"GV":0},"PGDSM":{"PGPS":{"EN":1}},"PIS":{"PC041245T":{"GU":{"EN":1,"IT":5}}},"PSI":{"CG":{"UEM":0}}}},"SESSION":self.session_id})
         self.connectionMessage(payloadJsonBinary)
-    except Exception as e:  
+    except Exception as e: 
       logging.error("Failed fam!: {}".format(e))
     finally:
       if (connection):
