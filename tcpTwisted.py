@@ -30,7 +30,7 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
     logging.debug("Clean data: {}".format(data))
     try:
       connection = psycopg2.connect(user = conf['db']['user'], password = conf['db']['password'], host = conf['db']['host'], port = conf['db']['port'], database = conf['db']['database'])
-      if data[0:2] == b'\x08\x00':
+      if data[0:2] == b'\x08\x00' and data[7:8] != b'\x00' :
         newData = data.split(b'\n')
         finalData = [var for var in newData if var]
         for line in finalData:
