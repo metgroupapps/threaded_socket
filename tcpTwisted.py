@@ -30,25 +30,30 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
     try:
       connection = psycopg2.connect(user = conf['db']['user'], password = conf['db']['password'], host = conf['db']['host'], port = conf['db']['port'], database = conf['db']['database'])
       if data[0:2] == b'\x08\x00':
-        strMsg = data.strip().decode('utf-8', 'ignore')
-        index = strMsg.find("{")
-        tmp = strMsg[index:]
-        loaded_json = json.loads(tmp)
-        operation = loaded_json['OPERATION']
-        if operation == "CONNECT":
-          self.session_id = loaded_json['SESSION']
-          self.deviceId = loaded_json['PARAMETER']['DSNO']
-          self.autocar = loaded_json['PARAMETER']['AUTOCAR']
-          self.connectionReply(operation)
-        elif operation == "SPI":
-          self.handleSPIMessages(loaded_json, connection)
-        elif operation == "SENDALARMINFO":
-          self.handleAlarms(loaded_json, connection)
-      elif data[0:2] == b'\x08\x16':
-        payloadJsonBinary = json.dumps({"MODULE":"CONFIGMODEL","OPERATION":"SET","PARAMETER":{"MDVR":{"KEYS":{"GV":0},"PGDSM":{"PGPS":{"EN":1}},"PIS":{"PC041245T":{"GU":{"EN":1,"IT":5}}},"PSI":{"CG":{"UEM":0}}}},"SESSION":self.session_id})
-        self.connectionMessage(payloadJsonBinary)
+        newData = data.split(b'\n')
+        for line in newData:
+          strMsg = line.strip().decode('utf-8', 'ignore')
+          index = strMsg.find("{")
+          tmp = strMsg[index:]
+          loaded_json = json.loads(tmp)
+          operation = loaded_json['OPERATION']
+          if operation == "CONNECT":
+            self.session_id = loaded_json['SESSION']
+            self.deviceId = loaded_json['PARAMETER']['DSNO']
+            self.autocar = loaded_json['PARAMETER']['AUTOCAR']
+            self.connectionReply(operation)
+          elif operation == "SPI":
+            self.handleSPIMessages(loaded_json, connection)
+          elif operation == "SENDALARMINFO":
+            self.handleAlarms(loaded_json, connection)
+        elif data[0:2] == b'\x08\x16':
+          payloadJsonBinary = json.dumps({"MODULE":"CONFIGMODEL","OPERATION":"SET","PARAMETER":{"MDVR":{"KEYS":{"GV":0},"PGDSM":{"PGPS":{"EN":1}},"PIS":{"PC041245T":{"GU":{"EN":1,"IT":5}}},"PSI":{"CG":{"UEM":0}}}},"SESSION":self.session_id})
+          self.connectionMessage(payloadJsonBinary)
     except Exception as e:  
       logging.error("Failed fam!: {}".format(e))
+    finally:
+      if (connection):
+        connection.close()
     self.resetTimeout()
     
   def connectionReply(self, operation):
@@ -99,7 +104,6 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
     cursor.execute(sql, storeValues)
     connection.commit()
     cursor.close()
-    connection.close()
     logging.debug("Parsed Msg: {}".format(storeValues))
 
   def timeoutConnection(self):
