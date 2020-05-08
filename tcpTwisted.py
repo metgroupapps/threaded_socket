@@ -10,6 +10,7 @@ from datetime import datetime
 from twisted.internet import reactor, protocol
 from twisted.protocols.policies import TimeoutMixin
 from bitstring import BitArray
+from dateutil.parser import parse
 
 FIRST_PART = pack('i', 0)
 END_PART = pack('<i', 82)
@@ -71,7 +72,7 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
   def handleSPIMessages(self, data, connection):
     try:
       if data['PARAMETER']['M'] == 1 and data['PARAMETER']['REAL'] == 0:
-        date = datetime.strptime(data['PARAMETER']['P']['T'] + "-05:00", '%y%m%d%H%M%S%f%z')
+        date = parse(data['PARAMETER']['P']['T'] + "-05:00")
         finalValues = {'gpsStatus': data['PARAMETER']['P']['V'], 'latitude': data['PARAMETER']['P']['W'], 'longitude': data['PARAMETER']['P']['J'], 'speed': data['PARAMETER']['P']['S'], 'angle': data['PARAMETER']['P']['C'], 'date': date.strftime('%y/%m/%d %H:%M:%S %z')}
         self.createOnDb(connection, finalValues, 0)
     except (Exception) as error: #, psycopg2.Error
@@ -81,8 +82,8 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
   def handleAlarms(self, data, connection):
     try:
       alertTime = datetime.utcfromtimestamp(data['PARAMETER']["CURRENTTIME"])
-      date = datetime.strptime(data['PARAMETER']['P']['T'] + "-05:00", '%y%m%d%H%M%S%f%z')
-      finalValues = {'gpsStatus': data['PARAMETER']['P']['V'], 'latitude': data['PARAMETER']['P']['W'], 'longitude': data['PARAMETER']['P']['J'], 'speed': data['PARAMETER']['P']['S'], 'angle': data['PARAMETER']['P']['C'], 'date': date.strftime('%y/%m/%d %H:%M:%S:%f %z')}
+      date = parse(data['PARAMETER']['P']['T'] + "-05:00")
+      finalValues = {'gpsStatus': data['PARAMETER']['P']['V'], 'latitude': data['PARAMETER']['P']['W'], 'longitude': data['PARAMETER']['P']['J'], 'speed': data['PARAMETER']['P']['S'], 'angle': data['PARAMETER']['P']['C'], 'date': date.strftime('%y/%m/%d %H:%M:%S %z')}
       data['PARAMETER']['P'] = finalValues
       data['PARAMETER']["CURRENTTIME"] = alertTime.strftime('%y/%m/%d %H:%M:%S %z')
       self.createOnDb(connection, data, 1)
