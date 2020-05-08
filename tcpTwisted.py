@@ -32,7 +32,8 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
       connection = psycopg2.connect(user = conf['db']['user'], password = conf['db']['password'], host = conf['db']['host'], port = conf['db']['port'], database = conf['db']['database'])
       if data[0:2] == b'\x08\x00':
         newData = data.split(b'\n')
-        for line in newData:
+        finalData = [var for var in newData if var]
+        for line in finalData:
           strMsg = line.strip().decode('utf-8', 'ignore')
           index = strMsg.find("{")
           tmp = strMsg[index:]
