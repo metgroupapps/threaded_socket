@@ -3,20 +3,24 @@ import json
 import yaml 
 import logging
 import time
-import pytz
 import psycopg2
 from logging.handlers import TimedRotatingFileHandler
 from struct import pack, unpack
-from datetime import datetime
+from datetime import datetime, timedelta
+from pytz import timezone
+import pytz
+from dateutil.relativedelta import relativedelta
+from dateutil.parser import parse
+from bitstring import BitArray
 from twisted.internet import reactor, protocol
 from twisted.protocols.policies import TimeoutMixin
-from bitstring import BitArray
-from dateutil.parser import parse
 
 FIRST_PART = pack('i', 0)
 END_PART = pack('<i', 82)
 logging.basicConfig(filename='developer_info.log', level=logging.DEBUG, format='%(asctime)s:%(levelname)s:%(message)s')
 conf = yaml.load(open('application.yml'), Loader=yaml.BaseLoader)
+utc = timezone('UTC')
+colombia = timezone('America/Bogota')
 
 class TCPServerMVR(protocol.Protocol, TimeoutMixin):
 
@@ -31,8 +35,8 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
     logging.debug("Clean data: {}".format(data))
     try:
       connection = psycopg2.connect(user = conf['db']['user'], password = conf['db']['password'], host = conf['db']['host'], port = conf['db']['port'], database = conf['db']['database'])
-      if data != b'\x08\x00\x00\x00\x00\x00\x00\x00R\x00\x00\x00' or data[0:3] != b'\x16\x03\x01' or data[0:3] != b'\x03\x00\x00':
-        if data[0:2] == b'\x08\x00':
+      if  data[0:3] != b'\x16\x03\x01' or data[0:3] != b'\x03\x00\x00':
+        if data[0:2] == b'\x08\x00' and data[7:8] != b'\x00':
           newData = data.split(b'\n')
           finalData = [var for var in newData if var]
           for line in finalData:
@@ -69,9 +73,6 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
       payloadJsonBinary = json.dumps({"MODULE":"CONFIGMODEL","OPERATION":"SET","PARAMETER":{"MDVR":{"KEYS":{"GV":0},"PGDSM":{"PGPS":{"EN":1}},"PIS":{"PC041245T":{"GU":{"EN":1,"IT":5}}},"PSI":{"CG":{"UEM":0}}}},"SESSION":self.session_id})
       self.connectionMessage(payloadJson)
       self.connectionMessage(payloadJsonBinary)
-    elif operation == "KEEPALIVE":
-      reply = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"KEEPALIVE","SESSION":self.session_id})  
-      self.connectionMessage(reply)
 
   def connectionMessage(self, payloadJson):
     payload = str(payloadJson).replace(" ", "")
@@ -92,11 +93,11 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
 
   def handleAlarms(self, data, connection):
     try:
-      alertTime = datetime.utcfromtimestamp(data['PARAMETER']["CURRENTTIME"])
+      alertTime = utc.localize(datetime.utcfromtimestamp(data['PARAMETER']["CURRENTTIME"]))
       date = parse(data['PARAMETER']['P']['T'] + "-05:00")
       finalValues = {'gpsStatus': data['PARAMETER']['P']['V'], 'latitude': data['PARAMETER']['P']['W'], 'longitude': data['PARAMETER']['P']['J'], 'speed': data['PARAMETER']['P']['S'], 'angle': data['PARAMETER']['P']['C'], 'date': date.strftime('%y/%m/%d %H:%M:%S %z')}
       data['PARAMETER']['P'] = finalValues
-      data['PARAMETER']["CURRENTTIME"] = alertTime.strftime('%y/%m/%d %H:%M:%S %z')
+      data['PARAMETER']["CURRENTTIME"] = alertTime.astimezone(colombia).strftime('%y/%m/%d %H:%M:%S %z')
       self.createOnDb(connection, data, 1)
     except (Exception) as error: #, psycopg2.Error
       if(connection):
