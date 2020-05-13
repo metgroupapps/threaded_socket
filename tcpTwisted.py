@@ -3,6 +3,7 @@ import json
 import yaml 
 import logging
 import time
+import pytz
 import psycopg2
 from logging.handlers import TimedRotatingFileHandler
 from struct import pack, unpack
@@ -30,27 +31,31 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
     logging.debug("Clean data: {}".format(data))
     try:
       connection = psycopg2.connect(user = conf['db']['user'], password = conf['db']['password'], host = conf['db']['host'], port = conf['db']['port'], database = conf['db']['database'])
-      if data[0:2] == b'\x08\x00' and data[7:8] != b'\x00' :
-        newData = data.split(b'\n')
-        finalData = [var for var in newData if var]
-        for line in finalData:
-          strMsg = line.strip().decode('utf-8', 'ignore')
-          index = strMsg.find("{")
-          tmp = strMsg[index:]
-          loaded_json = json.loads(tmp)
-          operation = loaded_json['OPERATION']
-          if operation == "CONNECT":
-            self.session_id = loaded_json['SESSION']
-            self.deviceId = loaded_json['PARAMETER']['DSNO']
-            self.autocar = loaded_json['PARAMETER']['AUTOCAR']
-            self.connectionReply(operation)
-          elif operation == "SPI":
-            self.handleSPIMessages(loaded_json, connection)
-          elif operation == "SENDALARMINFO":
-            self.handleAlarms(loaded_json, connection)
-      elif data[0:2] == b'\x08\x16':
-        payloadJsonBinary = json.dumps({"MODULE":"CONFIGMODEL","OPERATION":"SET","PARAMETER":{"MDVR":{"KEYS":{"GV":0},"PGDSM":{"PGPS":{"EN":1}},"PIS":{"PC041245T":{"GU":{"EN":1,"IT":5}}},"PSI":{"CG":{"UEM":0}}}},"SESSION":self.session_id})
-        self.connectionMessage(payloadJsonBinary)
+      if data != b'\x08\x00\x00\x00\x00\x00\x00\x00R\x00\x00\x00' or data[0:3] != b'\x16\x03\x01' or data[0:3] != b'\x03\x00\x00':
+        if data[0:2] == b'\x08\x00':
+          newData = data.split(b'\n')
+          finalData = [var for var in newData if var]
+          for line in finalData:
+            strMsg = line.strip().decode('utf-8', 'ignore')
+            index = strMsg.find("{")
+            tmp = strMsg[index:]
+            loaded_json = json.loads(tmp)
+            operation = loaded_json['OPERATION']
+            if operation == "CONNECT":
+              self.session_id = loaded_json['SESSION']
+              self.deviceId = loaded_json['PARAMETER']['DSNO']
+              self.autocar = loaded_json['PARAMETER']['AUTOCAR']
+              self.connectionReply(operation)
+            elif operation == "KEEPALIVE":
+              reply = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"KEEPALIVE","SESSION":self.session_id})  
+              self.connectionMessage(reply)
+            elif operation == "SPI":
+              self.handleSPIMessages(loaded_json, connection)
+            elif operation == "SENDALARMINFO":
+              self.handleAlarms(loaded_json, connection)
+        elif data[0:2] == b'\x08\x16':
+          payloadJsonBinary = json.dumps({"MODULE":"CONFIGMODEL","OPERATION":"SET","PARAMETER":{"MDVR":{"KEYS":{"GV":0},"PGDSM":{"PGPS":{"EN":1}},"PIS":{"PC041245T":{"GU":{"EN":1,"IT":5}}},"PSI":{"CG":{"UEM":0}}}},"SESSION":self.session_id})
+          self.connectionMessage(payloadJsonBinary)
     except Exception as e: 
       logging.error("Failed fam!: {}".format(e))
     finally:
