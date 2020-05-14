@@ -92,27 +92,44 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
         logging.error("Failed to parse: {}".format(error))
 
   def handleAlarms(self, data, connection):
-    try:
-      alertTime = utc.localize(datetime.utcfromtimestamp(data['PARAMETER']["CURRENTTIME"]))
+    if ("p" in data):
       date = parse(data['PARAMETER']['P']['T'] + "-05:00")
       finalValues = {'gpsStatus': data['PARAMETER']['P']['V'], 'latitude': data['PARAMETER']['P']['W'], 'longitude': data['PARAMETER']['P']['J'], 'speed': data['PARAMETER']['P']['S'], 'angle': data['PARAMETER']['P']['C'], 'date': date.strftime('%y/%m/%d %H:%M:%S %z')}
       data['PARAMETER']['P'] = finalValues
+    if ("CURRENTTIME" in data):
+      alertTime = utc.localize(datetime.utcfromtimestamp(data['PARAMETER']["CURRENTTIME"]))
       data['PARAMETER']["CURRENTTIME"] = alertTime.astimezone(colombia).strftime('%y/%m/%d %H:%M:%S %z')
-      self.createOnDb(connection, data, 1)
+    if ("CURTIME" in data):
+      alertTime = utc.localize(datetime.utcfromtimestamp(data['PARAMETER']["CURTIME"]))
+      data['PARAMETER']["CURTIME"] = alertTime.astimezone(colombia).strftime('%y/%m/%d %H:%M:%S %z')
+    if ("ETIME" in data): 
+      etime = parse(data['PARAMETER']['ETIME'] + "-05:00")
+      data['PARAMETER']['ETIME'] = etime.strftime('%y/%m/%d %H:%M:%S %z')
+    if ("STIME" in data):
+      stime = parse(data['PARAMETER']['STIME'] + "-05:00")
+      data['PARAMETER']['STIME'] = stime.strftime('%y/%m/%d %H:%M:%S %z')
+    if ("STARTTIME" in data):
+      starttime = parse(data['PARAMETER']['STARTTIME'] + "-05:00")
+      data['PARAMETER']['STARTTIME'] = starttime.strftime('%y/%m/%d %H:%M:%S %z')
+    if ("ENDSTIME" in data):
+      endtime = parse(data['PARAMETER']['ENDTIME'] + "-05:00")
+      data['PARAMETER']['ENDTIME'] = endtime.strftime('%y/%m/%d %H:%M:%S %z')
+    self.createOnDb(connection, data, 1)
+  
+  def createOnDb(self, connection, values, typeMsg):
+    try:
+      cursor = connection.cursor()
+      sql = "INSERT INTO mvr_messages(device_id, vehicle_internal_code, kind, parsed_data, created_at, updated_at) VALUES(%s,%s,%s,%s,%s,%s)"
+      strVal = json.dumps(values)
+      timeNow = datetime.utcnow()
+      storeValues= (self.deviceId, self.autocar, typeMsg, strVal, timeNow, timeNow)
+      cursor.execute(sql, storeValues)
+      connection.commit()
+      cursor.close()
+      logging.debug("Parsed Msg: {}".format(storeValues))
     except (Exception) as error: #, psycopg2.Error
       if(connection):
         logging.error("Failed to parse: {}".format(error))
-
-  def createOnDb(self, connection, values, typeMsg):
-    cursor = connection.cursor()
-    sql = "INSERT INTO mvr_messages(device_id, vehicle_internal_code, kind, parsed_data, created_at, updated_at) VALUES(%s,%s,%s,%s,%s,%s)"
-    strVal = json.dumps(values)
-    timeNow = datetime.utcnow()
-    storeValues= (self.deviceId, self.autocar, typeMsg, strVal, timeNow, timeNow)
-    cursor.execute(sql, storeValues)
-    connection.commit()
-    cursor.close()
-    logging.debug("Parsed Msg: {}".format(storeValues))
 
   def timeoutConnection(self):
     self.transport.abortConnection()
