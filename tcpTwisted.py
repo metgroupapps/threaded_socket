@@ -89,34 +89,26 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
 
   def handleAlarms(self, data, connection):
     dataInside = data['PARAMETER']
-    print(dataInside)
     if ("P" in dataInside):
-      print("p")
       date = parse(dataInside['P']['T'] + "-05:00")
       finalValues = {'gpsStatus': dataInside['P']['V'], 'latitude': dataInside['P']['W'], 'longitude': dataInside['P']['J'], 'speed': dataInside['P']['S'], 'angle': dataInside['P']['C'], 'date': date.strftime('%y/%m/%d %H:%M:%S %z')}
       dataInside['P'] = finalValues
     if ("CURRENTTIME" in dataInside):
-      print('current')
       alertTime = utc.localize(datetime.utcfromtimestamp(dataInside["CURRENTTIME"]))
       dataInside["CURRENTTIME"] = alertTime.astimezone(colombia).strftime('%y/%m/%d %H:%M:%S %z')
     if ("CURTIME" in dataInside):
-      print("cur")
       alertTime = utc.localize(datetime.utcfromtimestamp(dataInside["CURTIME"]))
       dataInside["CURTIME"] = alertTime.astimezone(colombia).strftime('%y/%m/%d %H:%M:%S %z')
     if ("ETIME" in dataInside):
-      print("et") 
       etime = parse(dataInside['ETIME'] + "-05:00")
       dataInside['ETIME'] = etime.strftime('%y/%m/%d %H:%M:%S %z')
     if ("STIME" in dataInside):
-      print("st")
       stime = parse(dataInside['STIME'] + "-05:00")
       dataInside['STIME'] = stime.strftime('%y/%m/%d %H:%M:%S %z')
     if ("STARTTIME" in dataInside):
-      print("stt")
       starttime = parse(dataInside['STARTTIME'] + "-05:00")
       dataInside['STARTTIME'] = starttime.strftime('%y/%m/%d %H:%M:%S %z')
     if ("ENDSTIME" in dataInside):
-      print("ent")
       endtime = parse(dataInside['ENDTIME'] + "-05:00")
       dataInside['ENDTIME'] = endtime.strftime('%y/%m/%d %H:%M:%S %z')
     data['PARAMETER'] = dataInside
@@ -142,7 +134,7 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
 
 
 def main():
-  print("Running TCP Server")
+  print("Running TCP Server On Port 8443...")
   factory = protocol.ServerFactory()  
   factory.protocol = TCPServerMVR
   reactor.listenTCP(8443,factory)
