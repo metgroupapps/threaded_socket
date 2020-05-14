@@ -55,7 +55,7 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
               self.connectionMessage(reply)
             elif operation == "SPI":
               self.handleSPIMessages(loaded_json, connection)
-            elif operation == "SENDALARMINFO":
+            else:
               self.handleAlarms(loaded_json, connection)
         elif data[0:2] == b'\x08\x16':
           payloadJsonBinary = json.dumps({"MODULE":"CONFIGMODEL","OPERATION":"SET","PARAMETER":{"MDVR":{"KEYS":{"GV":0},"PGDSM":{"PGPS":{"EN":1}},"PIS":{"PC041245T":{"GU":{"EN":1,"IT":5}}},"PSI":{"CG":{"UEM":0}}}},"SESSION":self.session_id})
@@ -82,10 +82,11 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
     self.transport.write(completeMessage)
   
   def handleSPIMessages(self, data, connection):
-    if data['PARAMETER']['M'] == 1 and data['PARAMETER']['REAL'] == 0:
-      date = parse(data['PARAMETER']['P']['T'] + "-05:00")
-      finalValues = {'gpsStatus': data['PARAMETER']['P']['V'], 'latitude': data['PARAMETER']['P']['W'], 'longitude': data['PARAMETER']['P']['J'], 'speed': data['PARAMETER']['P']['S'], 'angle': data['PARAMETER']['P']['C'], 'date': date.strftime('%y/%m/%d %H:%M:%S %z')}
-      self.createOnDb(connection, finalValues, 0)
+    date = parse(data['PARAMETER']['P']['T'] + "-05:00")
+    if data['OPERATION'] == 'SPI' and data['PARAMETER']['M'] == 1 and data['PARAMETER']['REAL'] == 0:
+      pValues = {'gpsStatus': data['PARAMETER']['P']['V'], 'latitude': data['PARAMETER']['P']['W'], 'longitude': data['PARAMETER']['P']['J'], 'speed': data['PARAMETER']['P']['S'], 'angle': data['PARAMETER']['P']['C'], 'date': date.strftime('%y/%m/%d %H:%M:%S %z')}
+      data['PARAMETER']['P'] = pValues
+      self.createOnDb(connection, data, 0)
 
   def handleAlarms(self, data, connection):
     dataInside = data['PARAMETER']
