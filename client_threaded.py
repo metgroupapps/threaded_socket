@@ -38,9 +38,9 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sck:
 		#sck.sendall(msg5)
 		#print(5)
 		#time.sleep(1)
-		#msg6 = b'\x08\x00\x00\x00\x00\x00\x00\x90R\x00\x00\x00{"MODULE":"DEVEMM","OPERATION":"SPI","PARAMETER":{"M":1,"P":{"C":0,"J":"-74.109406","S":0,"T":"20200508010216","V":0,"W":"4.708176"},"REAL":0}}\n'
-		#sck.sendall(msg6)
-		#print(6)
+		msg6 = b'\x08\x00\x00\x00\x00\x00\x00\x90R\x00\x00\x00{"MODULE":"DEVEMM","OPERATION":"SPI","PARAMETER":{"M":1,"P":{"C":0,"J":"-74.109406","S":0,"T":"20200508010216","V":0,"W":"4.708176"},"REAL":0}}\n'
+		sck.sendall(msg6)
+		print(6)
 		if msg2 =='exit':
 			print("Client is saying goodbye!")
 			break
