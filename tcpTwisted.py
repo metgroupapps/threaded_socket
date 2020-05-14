@@ -82,38 +82,44 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
     self.transport.write(completeMessage)
   
   def handleSPIMessages(self, data, connection):
-    try:
-      if data['PARAMETER']['M'] == 1 and data['PARAMETER']['REAL'] == 0:
-        date = parse(data['PARAMETER']['P']['T'] + "-05:00")
-        finalValues = {'gpsStatus': data['PARAMETER']['P']['V'], 'latitude': data['PARAMETER']['P']['W'], 'longitude': data['PARAMETER']['P']['J'], 'speed': data['PARAMETER']['P']['S'], 'angle': data['PARAMETER']['P']['C'], 'date': date.strftime('%y/%m/%d %H:%M:%S %z')}
-        self.createOnDb(connection, finalValues, 0)
-    except (Exception) as error: #, psycopg2.Error
-      if(connection):
-        logging.error("Failed to parse: {}".format(error))
-
-  def handleAlarms(self, data, connection):
-    if ("p" in data):
+    if data['PARAMETER']['M'] == 1 and data['PARAMETER']['REAL'] == 0:
       date = parse(data['PARAMETER']['P']['T'] + "-05:00")
       finalValues = {'gpsStatus': data['PARAMETER']['P']['V'], 'latitude': data['PARAMETER']['P']['W'], 'longitude': data['PARAMETER']['P']['J'], 'speed': data['PARAMETER']['P']['S'], 'angle': data['PARAMETER']['P']['C'], 'date': date.strftime('%y/%m/%d %H:%M:%S %z')}
-      data['PARAMETER']['P'] = finalValues
-    if ("CURRENTTIME" in data):
-      alertTime = utc.localize(datetime.utcfromtimestamp(data['PARAMETER']["CURRENTTIME"]))
-      data['PARAMETER']["CURRENTTIME"] = alertTime.astimezone(colombia).strftime('%y/%m/%d %H:%M:%S %z')
-    if ("CURTIME" in data):
-      alertTime = utc.localize(datetime.utcfromtimestamp(data['PARAMETER']["CURTIME"]))
-      data['PARAMETER']["CURTIME"] = alertTime.astimezone(colombia).strftime('%y/%m/%d %H:%M:%S %z')
-    if ("ETIME" in data): 
-      etime = parse(data['PARAMETER']['ETIME'] + "-05:00")
-      data['PARAMETER']['ETIME'] = etime.strftime('%y/%m/%d %H:%M:%S %z')
-    if ("STIME" in data):
-      stime = parse(data['PARAMETER']['STIME'] + "-05:00")
-      data['PARAMETER']['STIME'] = stime.strftime('%y/%m/%d %H:%M:%S %z')
-    if ("STARTTIME" in data):
-      starttime = parse(data['PARAMETER']['STARTTIME'] + "-05:00")
-      data['PARAMETER']['STARTTIME'] = starttime.strftime('%y/%m/%d %H:%M:%S %z')
-    if ("ENDSTIME" in data):
-      endtime = parse(data['PARAMETER']['ENDTIME'] + "-05:00")
-      data['PARAMETER']['ENDTIME'] = endtime.strftime('%y/%m/%d %H:%M:%S %z')
+      self.createOnDb(connection, finalValues, 0)
+
+  def handleAlarms(self, data, connection):
+    dataInside = data['PARAMETER']
+    print(dataInside)
+    if ("P" in dataInside):
+      print("p")
+      date = parse(dataInside['P']['T'] + "-05:00")
+      finalValues = {'gpsStatus': dataInside['P']['V'], 'latitude': dataInside['P']['W'], 'longitude': dataInside['P']['J'], 'speed': dataInside['P']['S'], 'angle': dataInside['P']['C'], 'date': date.strftime('%y/%m/%d %H:%M:%S %z')}
+      dataInside['P'] = finalValues
+    if ("CURRENTTIME" in dataInside):
+      print('current')
+      alertTime = utc.localize(datetime.utcfromtimestamp(dataInside["CURRENTTIME"]))
+      dataInside["CURRENTTIME"] = alertTime.astimezone(colombia).strftime('%y/%m/%d %H:%M:%S %z')
+    if ("CURTIME" in dataInside):
+      print("cur")
+      alertTime = utc.localize(datetime.utcfromtimestamp(dataInside["CURTIME"]))
+      dataInside["CURTIME"] = alertTime.astimezone(colombia).strftime('%y/%m/%d %H:%M:%S %z')
+    if ("ETIME" in dataInside):
+      print("et") 
+      etime = parse(dataInside['ETIME'] + "-05:00")
+      dataInside['ETIME'] = etime.strftime('%y/%m/%d %H:%M:%S %z')
+    if ("STIME" in dataInside):
+      print("st")
+      stime = parse(dataInside['STIME'] + "-05:00")
+      dataInside['STIME'] = stime.strftime('%y/%m/%d %H:%M:%S %z')
+    if ("STARTTIME" in dataInside):
+      print("stt")
+      starttime = parse(dataInside['STARTTIME'] + "-05:00")
+      dataInside['STARTTIME'] = starttime.strftime('%y/%m/%d %H:%M:%S %z')
+    if ("ENDSTIME" in dataInside):
+      print("ent")
+      endtime = parse(dataInside['ENDTIME'] + "-05:00")
+      dataInside['ENDTIME'] = endtime.strftime('%y/%m/%d %H:%M:%S %z')
+    data['PARAMETER'] = dataInside
     self.createOnDb(connection, data, 1)
   
   def createOnDb(self, connection, values, typeMsg):
