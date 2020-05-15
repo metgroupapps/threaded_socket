@@ -4,6 +4,7 @@ import yaml
 import logging
 import time
 import psycopg2
+from psycopg2 import sql
 from logging.handlers import TimedRotatingFileHandler
 from struct import pack, unpack
 from datetime import datetime, timedelta
@@ -48,7 +49,8 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
             if operation == "CONNECT":
               self.session_id = loaded_json['SESSION']
               self.deviceId = loaded_json['PARAMETER']['DSNO']
-              self.autocar = loaded_json['PARAMETER']['AUTOCAR']
+              self.autocar = loaded_json['PARAMETER']['AUTOCAR'] 
+              self.gpsdate, self.currenttime, self.curtime, self.etime, self.stime, self.starttime, self.endtime = 0, 0, 0, 0, 0, 0, 0
               self.connectionReply(operation)
             elif operation == "KEEPALIVE":
               reply = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"KEEPALIVE","SESSION":self.session_id})  
@@ -82,53 +84,84 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
     self.transport.write(completeMessage)
   
   def handleSPIMessages(self, data, connection):
-    date = parse(data['PARAMETER']['P']['T'] + "-05:00")
     if data['OPERATION'] == 'SPI' and data['PARAMETER']['M'] == 1 and data['PARAMETER']['REAL'] == 0:
-      pValues = {'gpsStatus': data['PARAMETER']['P']['V'], 'latitude': data['PARAMETER']['P']['W'], 'longitude': data['PARAMETER']['P']['J'], 'speed': data['PARAMETER']['P']['S'], 'angle': data['PARAMETER']['P']['C'], 'date': date.strftime('%y/%m/%d %H:%M:%S %z')}
+      date = parse(data['PARAMETER']['P']['T'] + "-05:00")
+      self.gpsdate = date.strftime('%y/%m/%d %H:%M:%S %z')
+      pValues = {'gpsStatus': data['PARAMETER']['P']['V'], 'latitude': data['PARAMETER']['P']['W'], 'longitude': data['PARAMETER']['P']['J'], 'speed': data['PARAMETER']['P']['S'], 'angle': data['PARAMETER']['P']['C']}
       data['PARAMETER']['P'] = pValues
-      self.createOnDb(connection, data, 0)
+      self.createOnDb(connection, data)
+    else: 
+      self.handleAlarms(data, connection)
 
   def handleAlarms(self, data, connection):
     dataInside = data['PARAMETER']
     if ("P" in dataInside):
       date = parse(dataInside['P']['T'] + "-05:00")
-      finalValues = {'gpsStatus': dataInside['P']['V'], 'latitude': dataInside['P']['W'], 'longitude': dataInside['P']['J'], 'speed': dataInside['P']['S'], 'angle': dataInside['P']['C'], 'date': date.strftime('%y/%m/%d %H:%M:%S %z')}
+      self.gpsdate = date.strftime('%y/%m/%d %H:%M:%S %z')
+      finalValues = {'gpsStatus': dataInside['P']['V'], 'latitude': dataInside['P']['W'], 'longitude': dataInside['P']['J'], 'speed': dataInside['P']['S'], 'angle': dataInside['P']['C']}
       dataInside['P'] = finalValues
+      data['PARAMETER'] = dataInside
     if ("CURRENTTIME" in dataInside):
       alertTime = utc.localize(datetime.utcfromtimestamp(dataInside["CURRENTTIME"]))
-      dataInside["CURRENTTIME"] = alertTime.astimezone(colombia).strftime('%y/%m/%d %H:%M:%S %z')
+      self.currenttime = alertTime.astimezone(colombia).strftime('%y/%m/%d %H:%M:%S %z')
     if ("CURTIME" in dataInside):
       alertTime = utc.localize(datetime.utcfromtimestamp(dataInside["CURTIME"]))
-      dataInside["CURTIME"] = alertTime.astimezone(colombia).strftime('%y/%m/%d %H:%M:%S %z')
+      self.curtime = alertTime.astimezone(colombia).strftime('%y/%m/%d %H:%M:%S %z')
     if ("ETIME" in dataInside):
       etime = parse(dataInside['ETIME'] + "-05:00")
-      dataInside['ETIME'] = etime.strftime('%y/%m/%d %H:%M:%S %z')
+      self.etime = etime.strftime('%y/%m/%d %H:%M:%S %z')
     if ("STIME" in dataInside):
       stime = parse(dataInside['STIME'] + "-05:00")
-      dataInside['STIME'] = stime.strftime('%y/%m/%d %H:%M:%S %z')
+      self.stime = stime.strftime('%y/%m/%d %H:%M:%S %z')
     if ("STARTTIME" in dataInside):
       starttime = parse(dataInside['STARTTIME'] + "-05:00")
-      dataInside['STARTTIME'] = starttime.strftime('%y/%m/%d %H:%M:%S %z')
-    if ("ENDSTIME" in dataInside):
+      self.starttime = starttime.strftime('%y/%m/%d %H:%M:%S %z')
+    if ("ENDTIME" in dataInside):
       endtime = parse(dataInside['ENDTIME'] + "-05:00")
-      dataInside['ENDTIME'] = endtime.strftime('%y/%m/%d %H:%M:%S %z')
-    data['PARAMETER'] = dataInside
-    self.createOnDb(connection, data, 1)
+      self.endtime = endtime.strftime('%y/%m/%d %H:%M:%S %z')
+    self.createOnDb(connection, data)
   
-  def createOnDb(self, connection, values, typeMsg):
+  def createOnDb(self, connection, values):
     try:
       cursor = connection.cursor()
-      sql = "INSERT INTO mvr_messages(device_id, vehicle_internal_code, kind, parsed_data, created_at, updated_at) VALUES(%s,%s,%s,%s,%s,%s)"
       strVal = json.dumps(values)
-      timeNow = datetime.utcnow()
-      storeValues= (self.deviceId, self.autocar, typeMsg, strVal, timeNow, timeNow)
-      cursor.execute(sql, storeValues)
+      timeNow = datetime.now(utc).astimezone(colombia).strftime('%y/%m/%d %H:%M:%S %z')
+      sql_values = {"device_id": self.deviceId, "vehicle_internal_code": self.autocar, "parsed_data": strVal, "created_at": timeNow,"updated_at": timeNow}
+      dataInside = values['PARAMETER']
+      if ("P" in dataInside): 
+        sql_values["gps_date"] = self.gpsdate
+      if ("CURRENTTIME" in dataInside):
+        sql_values["current_time"] = self.currenttime
+      if ("CURTIME" in dataInside):
+        sql_values["cur_time"] = self.curtime
+      if ("ETIME" in dataInside):
+        sql_values["end_time"] = self.etime
+      if ("STIME" in dataInside):
+        sql_values["s_time"] = self.stime
+      if ("STARTTIME" in dataInside):
+        sql_values["start_time"] = self.starttime
+      if ("ENDTIME" in dataInside):
+        sql_values["end_time"] = self.endtime
+      sql_query = self.saveOnDb(cursor, sql_values)
+      logging.debug("Parsed Msg: {}".format(sql_query))
+      cursor.execute(sql_query)
       connection.commit()
       cursor.close()
-      logging.debug("Parsed Msg: {}".format(storeValues))
     except (Exception) as error: #, psycopg2.Error
       if(connection):
-        logging.error("Failed to parse: {}".format(error))
+        logging.error("createOnDb: {}".format(error))
+    
+  def saveOnDb(self, cursor, baseInfo):
+    table = 'mvr_messages'
+    columns = list(baseInfo.keys())
+    values  = list(baseInfo.values())
+    query_string = sql.SQL("INSERT INTO {} ({}) VALUES ({})").format(
+      sql.Identifier(table),
+      sql.SQL(', ').join(map(sql.Identifier, columns)),
+      sql.SQL(', ').join(sql.Placeholder()*len(values)),
+      ).as_string(cursor)
+    final_query = cursor.mogrify(query_string, values)
+    return final_query
 
   def timeoutConnection(self):
     self.transport.abortConnection()
