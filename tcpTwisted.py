@@ -3,6 +3,7 @@ import json
 import yaml 
 import logging
 import time
+import redis
 import psycopg2
 from psycopg2 import sql
 from logging.handlers import TimedRotatingFileHandler
@@ -18,6 +19,7 @@ from twisted.protocols.policies import TimeoutMixin
 
 FIRST_PART = pack('i', 0)
 END_PART = pack('<i', 82)
+r = redis.Redis(host='209.240.107.6', port="6379", password="XBLB!RVfj3a[H/%WcykDa;Wk5@xTZf<") 
 logging.basicConfig(filename='developer_info.log', level=logging.DEBUG, format='%(asctime)s:%(levelname)s:%(message)s')
 conf = yaml.load(open('application.yml'), Loader=yaml.BaseLoader)
 utc = timezone('UTC')
@@ -147,6 +149,7 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
       cursor.execute(sql_query)
       connection.commit()
       cursor.close()
+      r.publish('check_mvrs', self.deviceId)
     except (Exception) as error: #, psycopg2.Error
       if(connection):
         logging.error("createOnDb: {}".format(error))
