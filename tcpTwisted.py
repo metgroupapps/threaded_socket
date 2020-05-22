@@ -88,7 +88,7 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
   def handleSPIMessages(self, data, connection):
     if data['OPERATION'] == 'SPI' and data['PARAMETER']['M'] == 1 and data['PARAMETER']['REAL'] == 0:
       date = parse(data['PARAMETER']['P']['T'] + "-05:00")
-      self.gpsdate = date.strftime('%d/%m/%Y %H:%M:%S %z')
+      self.gpsdate = date.strftime('%Y/%m/%d %H:%M:%S %z')
       pValues = {'gpsStatus': data['PARAMETER']['P']['V'], 'latitude': data['PARAMETER']['P']['W'], 'longitude': data['PARAMETER']['P']['J'], 'speed': data['PARAMETER']['P']['S'], 'angle': data['PARAMETER']['P']['C']}
       data['PARAMETER']['P'] = pValues
       self.createOnDb(connection, data)
@@ -99,35 +99,35 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
     dataInside = data['PARAMETER']
     if ("P" in dataInside):
       date = parse(dataInside['P']['T'] + "-05:00")
-      self.gpsdate = date.strftime('%d/%m/%Y %H:%M:%S %z')
+      self.gpsdate = date.strftime('%Y/%m/%d %H:%M:%S %z')
       finalValues = {'gpsStatus': dataInside['P']['V'], 'latitude': dataInside['P']['W'], 'longitude': dataInside['P']['J'], 'speed': dataInside['P']['S'], 'angle': dataInside['P']['C']}
       dataInside['P'] = finalValues
       data['PARAMETER'] = dataInside
     if ("CURRENTTIME" in dataInside):
       alertTime = utc.localize(datetime.utcfromtimestamp(dataInside["CURRENTTIME"]))
-      self.currenttime = alertTime.astimezone(colombia).strftime('%d/%m/%Y %H:%M:%S %z')
+      self.currenttime = alertTime.astimezone(colombia).strftime('%Y/%m/%d %H:%M:%S %z')
     if ("CURTIME" in dataInside):
       alertTime = utc.localize(datetime.utcfromtimestamp(dataInside["CURTIME"]))
-      self.curtime = alertTime.astimezone(colombia).strftime('%d/%m/%Y %H:%M:%S %z')
+      self.curtime = alertTime.astimezone(colombia).strftime('%Y/%m/%d %H:%M:%S %z')
     if ("ETIME" in dataInside):
       etime = parse(dataInside['ETIME'] + "-05:00")
-      self.etime = etime.strftime('%d/%m/%Y %H:%M:%S %z')
+      self.etime = etime.strftime('%Y/%m/%d %H:%M:%S %z')
     if ("STIME" in dataInside):
       stime = parse(dataInside['STIME'] + "-05:00")
-      self.stime = stime.strftime('%d/%m/%Y %H:%M:%S %z')
+      self.stime = stime.strftime('%Y/%m/%d %H:%M:%S %z')
     if ("STARTTIME" in dataInside):
       starttime = parse(dataInside['STARTTIME'] + "-05:00")
-      self.starttime = starttime.strftime('%d/%m/%Y %H:%M:%S %z')
+      self.starttime = starttime.strftime('%Y/%m/%d %H:%M:%S %z')
     if ("ENDTIME" in dataInside):
       endtime = parse(dataInside['ENDTIME'] + "-05:00")
-      self.endtime = endtime.strftime('%d/%m/%Y %H:%M:%S %z')
+      self.endtime = endtime.strftime('%Y/%m/%d %H:%M:%S %z')
     self.createOnDb(connection, data)
   
   def createOnDb(self, connection, values):
     try:
       cursor = connection.cursor()
       strVal = json.dumps(values)
-      timeNow = datetime.now(utc).astimezone(colombia).strftime('%d/%m/%Y %H:%M:%S %z')
+      timeNow = datetime.now(utc).astimezone(colombia).strftime('%Y/%m/%d %H:%M:%S %z')
       sql_values = {"device_id": self.deviceId, "vehicle_internal_code": self.autocar, "parsed_data": strVal, "created_at": timeNow,"updated_at": timeNow}
       dataInside = values['PARAMETER']
       if ("P" in dataInside): 
