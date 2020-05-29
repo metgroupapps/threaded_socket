@@ -61,7 +61,7 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
               self.handleSPIMessages(loaded_json, connection)
             else:
               if operation == "SENDALARMINFO":
-                replyAlarm = {"MODULE":"CERTIFICATE","OPERATION":operation,"RESPONSE":{"ERRORCAUSE":"","ERRORCODE":0,"ALARMTYPE":loaded_json['PARAMETER']['ALARMTYPE'],"CMDTYPE":loaded_json['PARAMETER']['CMDTYPE'],"ALARMUID":loaded_json['PARAMETER']['ALARMUID'],"RUN":loaded_json['PARAMETER']['RUN'],"CMDNO":loaded_json['PARAMETER']['CMDNO']},"SESSION":self.session_id}
+                replyAlarm = {"MODULE":"CERTIFICATE","OPERATION":operation,"RESPONSE":{"ERRORCAUSE":"SUCCESS","ERRORCODE":0,"ALARMTYPE":loaded_json['PARAMETER']['ALARMTYPE'],"CMDTYPE":loaded_json['PARAMETER']['CMDTYPE'],"ALARMUID":loaded_json['PARAMETER']['ALARMUID'],"RUN":loaded_json['PARAMETER']['RUN'],"CMDNO":loaded_json['PARAMETER']['CMDNO']},"SESSION":self.session_id}
                 self.connectionMessage(replyAlarm)
               self.handleAlarms(loaded_json, connection)
         elif data[0:2] == b'\x08\x16':
