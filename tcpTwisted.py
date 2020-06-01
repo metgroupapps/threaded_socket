@@ -47,23 +47,24 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
             index = strMsg.find("{")
             tmp = strMsg[index:]
             loaded_json = json.loads(tmp)
-            operation = loaded_json['OPERATION']
-            if operation == "CONNECT":
-              self.session_id = loaded_json['SESSION']
-              self.deviceId = loaded_json['PARAMETER']['DSNO']
-              self.autocar = loaded_json['PARAMETER']['AUTOCAR'] 
-              self.gpsdate, self.currenttime, self.curtime, self.etime, self.stime, self.starttime, self.endtime = 0, 0, 0, 0, 0, 0, 0
-              self.connectionReply(operation)
-            elif operation == "KEEPALIVE":
-              reply = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"KEEPALIVE","SESSION":self.session_id})  
-              self.connectionMessage(reply)
-            elif operation == "SPI":
-              self.handleSPIMessages(loaded_json, connection)
-            else:
-              if operation == "SENDALARMINFO":
-                replyAlarm = {"MODULE":"CERTIFICATE","OPERATION":operation,"RESPONSE":{"ERRORCAUSE":"SUCCESS","ERRORCODE":0,"ALARMTYPE":loaded_json['PARAMETER']['ALARMTYPE'],"CMDTYPE":loaded_json['PARAMETER']['CMDTYPE'],"ALARMUID":loaded_json['PARAMETER']['ALARMUID'],"RUN":loaded_json['PARAMETER']['RUN'],"CMDNO":loaded_json['PARAMETER']['CMDNO']},"SESSION":self.session_id}
-                self.connectionMessage(replyAlarm)
-              self.handleAlarms(loaded_json, connection)
+            if ("PARAMETER" in loaded_json):
+              operation = loaded_json['OPERATION']
+              if operation == "CONNECT":
+                self.session_id = loaded_json['SESSION']
+                self.deviceId = loaded_json['PARAMETER']['DSNO']
+                self.autocar = loaded_json['PARAMETER']['AUTOCAR'] 
+                self.gpsdate, self.currenttime, self.curtime, self.etime, self.stime, self.starttime, self.endtime = 0, 0, 0, 0, 0, 0, 0
+                self.connectionReply(operation)
+              elif operation == "KEEPALIVE":
+                reply = json.dumps({"MODULE":"CERTIFICATE","OPERATION":"KEEPALIVE","SESSION":self.session_id})  
+                self.connectionMessage(reply)
+              elif operation == "SPI":
+                self.handleSPIMessages(loaded_json, connection)
+              else:
+                if operation == "SENDALARMINFO":
+                  replyAlarm = {"MODULE":"CERTIFICATE","OPERATION":operation,"RESPONSE":{"ERRORCAUSE":"SUCCESS","ERRORCODE":0,"ALARMTYPE":loaded_json['PARAMETER']['ALARMTYPE'],"CMDTYPE":loaded_json['PARAMETER']['CMDTYPE'],"ALARMUID":loaded_json['PARAMETER']['ALARMUID'],"RUN":loaded_json['PARAMETER']['RUN'],"CMDNO":loaded_json['PARAMETER']['CMDNO']},"SESSION":self.session_id}
+                  self.connectionMessage(replyAlarm)
+                self.handleAlarms(loaded_json, connection)
         elif data[0:2] == b'\x08\x16':
           payloadJsonBinary = json.dumps({"MODULE":"CONFIGMODEL","OPERATION":"SET","PARAMETER":{"MDVR":{"KEYS":{"GV":0},"PGDSM":{"PGPS":{"EN":1}},"PIS":{"PC041245T":{"GU":{"EN":1,"IT":5}}},"PSI":{"CG":{"UEM":0}}}},"SESSION":self.session_id})
           self.connectionMessage(payloadJsonBinary)
