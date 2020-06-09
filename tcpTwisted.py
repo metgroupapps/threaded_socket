@@ -93,7 +93,8 @@ class TCPServerMVR(protocol.Protocol, TimeoutMixin):
     if data['OPERATION'] == 'SPI' and data['PARAMETER']['M'] == 1 and data['PARAMETER']['REAL'] == 0:
       date = parse(data['PARAMETER']['P']['T'] + "-05:00")
       self.gpsdate = date.strftime('%Y/%m/%d %H:%M:%S %z')
-      pValues = {'gpsStatus': data['PARAMETER']['P']['V'], 'latitude': data['PARAMETER']['P']['W'], 'longitude': data['PARAMETER']['P']['J'], 'speed': data['PARAMETER']['P']['S'], 'angle': data['PARAMETER']['P']['C']}
+      msg_speed = data['PARAMETER']['P']['S']/100
+      pValues = {'gpsStatus': data['PARAMETER']['P']['V'], 'latitude': data['PARAMETER']['P']['W'], 'longitude': data['PARAMETER']['P']['J'], 'speed': msg_speed, 'angle': data['PARAMETER']['P']['C']}
       data['PARAMETER']['P'] = pValues
       self.createOnDb(connection, data)
     else: 
